@@ -32,41 +32,59 @@ flutter pub get
 
 ### 2. Download the XPrinter SDK from the official source
 
-This package does **not** redistribute XPrinter's vendor binaries. Download them yourself from <https://www.xprinter.net> (Support → SDK & Manual). You'll need:
+This package does **not** redistribute XPrinter's vendor binaries. Download them yourself from the official XPrinter SDK page:
 
-- **iOS**: `libPrinterSDK.a` plus the `Headers/` folder (look for "iOS SDK" — the one with `POSPrinter`, `POSBLEManager`, `POSWIFIManager`).
-- **Android**: `printer-lib-3.2.0.aar` (or a compatible v3.x release — look for "Android SDK").
+**<https://www.xprintertech.com/sdk.html>**
+
+You'll need two files:
+
+- **iOS** — `libPrinterSDK.a` plus the `Headers/` folder (look for the iOS POS SDK; the headers include `POSPrinter.h`, `POSBLEManager.h`, `POSWIFIManager.h`).
+- **Android** — `printer-lib-3.2.0.aar` (or a compatible v3.x release; look for the Android POS SDK).
 
 Review XPrinter's licence terms before using these binaries in your app.
 
-### 3. Place the binaries
+### 3. Place the binaries (iOS)
 
-After running `flutter pub get`, the package lives at `~/.pub-cache/hosted/pub.dev/flutter_xprinter_sdk-<version>/`. Copy the downloaded files there:
+After `flutter pub get`, the package lives at `~/.pub-cache/hosted/pub.dev/flutter_xprinter_sdk-<version>/`. Drop the iOS files there:
 
 ```bash
-# iOS
-cp -R Headers ~/.pub-cache/hosted/pub.dev/flutter_xprinter_sdk-0.1.0/ios/Frameworks/
-cp libPrinterSDK.a ~/.pub-cache/hosted/pub.dev/flutter_xprinter_sdk-0.1.0/ios/Frameworks/
-
-# Android
-cp printer-lib-3.2.0.aar ~/.pub-cache/hosted/pub.dev/flutter_xprinter_sdk-0.1.0/android/libs/
+PLUGIN=~/.pub-cache/hosted/pub.dev/flutter_xprinter_sdk-0.1.0
+cp -R Headers           "$PLUGIN/ios/Frameworks/"
+cp libPrinterSDK.a      "$PLUGIN/ios/Frameworks/"
 ```
 
-If you delete `~/.pub-cache` or run `flutter clean --hard`, you'll need to copy the binaries again. For team projects, vendoring the binaries in your repo and using a `path:` dependency is more reliable.
+Then `cd ios && pod install` from your app's directory. Done — CocoaPods picks up the vendored library through the plugin's podspec.
 
-### 4. Host-app configuration
+If you delete `~/.pub-cache` or run a deep clean, you'll need to copy the iOS binaries again. For team projects, vendoring the binaries in your own repo and using a `path:` dependency is more reliable than the pub-cache approach.
 
-**iOS** — open your iOS project in Xcode once after the first install, so CocoaPods picks up the static library. No further config needed.
+### 4. Place the AAR + wire it up (Android)
 
-**Android** — add `flutter_xprinter_sdk` to your app's `android/app/build.gradle` if it isn't auto-resolved:
+Android Gradle doesn't allow nested AARs, so the plugin can only reference the AAR at compile time. **The host app must re-declare it for runtime.** Skipping this step produces a `MissingPluginException` at first method call.
 
+**Step 4a.** Copy the AAR into your **app's** `libs/` (not the plugin's):
+
+```bash
+mkdir -p android/app/libs
+cp printer-lib-3.2.0.aar android/app/libs/
+```
+
+**Step 4b.** Open `android/app/build.gradle` (or `build.gradle.kts`) and add an `implementation fileTree(...)` line:
+
+Groovy (`build.gradle`):
 ```gradle
 dependencies {
-    implementation fileTree(dir: '../../<path-to-pub-cache>/flutter_xprinter_sdk-0.1.0/android/libs', include: ['*.aar'])
+    implementation fileTree(dir: 'libs', include: ['*.aar'])
 }
 ```
 
-(Most setups don't need this — it's only required if Gradle complains about missing `net.posprinter.*` symbols.)
+Kotlin DSL (`build.gradle.kts`):
+```kotlin
+dependencies {
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
+}
+```
+
+After this, `flutter clean && flutter run` builds against the AAR cleanly.
 
 ### 5. Permissions
 
@@ -93,11 +111,13 @@ await [
 ## Quick start
 
 ```dart
+import 'dart:typed_data';
 import 'package:flutter_xprinter_sdk/flutter_xprinter_sdk.dart';
 
 Future<void> printSimpleReceipt() async {
-  // 1. Discover and connect.
-  final devices = await XprinterBluetooth.scan(timeout: const Duration(seconds: 5));
+  // 1. List paired Bluetooth devices and pick one.  For live advertising
+  //    devices use `XprinterBluetooth.startDiscovery(timeout:)` instead.
+  final devices = await XprinterBluetooth.getBondedDevices();
   final printer = devices.first;
   await XprinterConnection.connect(
     type: XprinterConnectionType.bluetooth,
@@ -249,7 +269,7 @@ The vendor AAR isn't on the classpath. Either copy it to `<pub-cache>/.../androi
 
 This wrapper is MIT-licensed (see [LICENSE](LICENSE)).
 
-The bundled XPrinter SDKs are NOT included in this distribution. Obtain them from <https://www.xprinter.net> and review XPrinter Co., Ltd.'s licence terms before shipping in your app.
+The bundled XPrinter SDKs are NOT included in this distribution. Obtain them from <https://www.xprintertech.com/sdk.html> and review XPrinter Co., Ltd.'s licence terms before shipping in your app.
 
 ## Contributing
 

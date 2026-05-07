@@ -1,4 +1,4 @@
-# Vendor binaries — users download these from xprinter.net themselves.
+# Vendor binaries — users download these from xprintertech.com/sdk.html themselves.
 # Keeping them out of the published archive avoids redistributing
 # proprietary code we don't have a licence to ship.
 ios/Frameworks/libPrinterSDK.a
