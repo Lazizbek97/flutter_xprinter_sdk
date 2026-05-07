@@ -1,0 +1,26 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Bluetooth — pre-31 needs BLUETOOTH/BLUETOOTH_ADMIN; 31+ needs SCAN/CONNECT. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <!-- We only scan to find printers — never to derive user location.  The
+         neverForLocation flag drops the implicit fine-location requirement
+         on Android 12+. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- BLE scan on pre-31 needs location permission (Android requirement, not vendor SDK). -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+
+    <!-- TCP/IP (WiFi or Ethernet) connections. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Optional features — printer hardware varies per merchant. -->
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
+</manifest>

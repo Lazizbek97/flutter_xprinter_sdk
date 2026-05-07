@@ -1,0 +1,61 @@
+# Vendor binaries — XPrinter SDK is proprietary, NOT redistributable.
+# Users download these from https://www.xprinter.net themselves.
+ios/Frameworks/libPrinterSDK.a
+ios/Frameworks/Headers/
+android/libs/printer-lib-*.aar
+example/android/app/libs/printer-lib-*.aar
+
+# Dart / Flutter build artefacts
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*/build/
+**/build/
+
+# Lockfiles for the plugin itself (dependents resolve their own)
+pubspec.lock
+example/pubspec.lock
+
+# iOS / CocoaPods
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/flutter_export_environment.sh
+ios/Runner.xcworkspace/xcuserdata/
+ios/Runner.xcodeproj/xcuserdata/
+ios/Runner.xcodeproj/project.xcworkspace/xcuserdata/
+ios/.generated/
+example/ios/Pods/
+example/ios/.symlinks/
+example/ios/Flutter/Flutter.framework
+example/ios/Flutter/Flutter.podspec
+example/ios/Flutter/flutter_export_environment.sh
+example/ios/Runner.xcworkspace/xcuserdata/
+example/ios/Runner.xcodeproj/xcuserdata/
+example/ios/Runner.xcodeproj/project.xcworkspace/xcuserdata/
+example/ios/.generated/
+
+# Android / Gradle
+.gradle/
+**/gradle-wrapper.jar
+local.properties
+android/captures/
+example/android/captures/
+example/android/.gradle/
+example/android/local.properties
+
+# IDE / editor
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db

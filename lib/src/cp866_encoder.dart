@@ -1,0 +1,106 @@
+/// Pure-Dart CP866 encoder.
+///
+/// WHY THIS EXISTS:
+/// CharsetConverter.encode("CP866") delegates to Android's Charset API.
+/// CP866 is not registered in Android's default charset provider on many
+/// devices, so it silently returns 0x3F ('?') for every Cyrillic character.
+///
+/// This lookup table has zero platform dependency and never fails silently.
+///
+/// CP866 high-byte layout:
+///   0x80–0x9F : А–Я  (uppercase)
+///   0xA0–0xAF : а–п  (lowercase first half)
+///   0xE0–0xEF : р–я  (lowercase second half)
+///   0xF0      : Ё
+///   0xF1      : ё
+const Map<int, int> _cp866Table = {
+  // ── Uppercase ──────────────────────────────────────────────────────────────
+  0x0410: 0x80, // А
+  0x0411: 0x81, // Б
+  0x0412: 0x82, // В
+  0x0413: 0x83, // Г
+  0x0414: 0x84, // Д
+  0x0415: 0x85, // Е
+  0x0416: 0x86, // Ж
+  0x0417: 0x87, // З
+  0x0418: 0x88, // И
+  0x0419: 0x89, // Й
+  0x041A: 0x8A, // К
+  0x041B: 0x8B, // Л
+  0x041C: 0x8C, // М
+  0x041D: 0x8D, // Н
+  0x041E: 0x8E, // О
+  0x041F: 0x8F, // П
+  0x0420: 0x90, // Р
+  0x0421: 0x91, // С
+  0x0422: 0x92, // Т
+  0x0423: 0x93, // У
+  0x0424: 0x94, // Ф
+  0x0425: 0x95, // Х
+  0x0426: 0x96, // Ц
+  0x0427: 0x97, // Ч
+  0x0428: 0x98, // Ш
+  0x0429: 0x99, // Щ
+  0x042A: 0x9A, // Ъ
+  0x042B: 0x9B, // Ы
+  0x042C: 0x9C, // Ь
+  0x042D: 0x9D, // Э
+  0x042E: 0x9E, // Ю
+  0x042F: 0x9F, // Я
+  // ── Lowercase first half (а–п) ─────────────────────────────────────────────
+  0x0430: 0xA0, // а
+  0x0431: 0xA1, // б
+  0x0432: 0xA2, // в
+  0x0433: 0xA3, // г
+  0x0434: 0xA4, // д
+  0x0435: 0xA5, // е
+  0x0436: 0xA6, // ж
+  0x0437: 0xA7, // з
+  0x0438: 0xA8, // и
+  0x0439: 0xA9, // й
+  0x043A: 0xAA, // к
+  0x043B: 0xAB, // л
+  0x043C: 0xAC, // м
+  0x043D: 0xAD, // н
+  0x043E: 0xAE, // о
+  0x043F: 0xAF, // п
+  // ── Lowercase second half (р–я) ────────────────────────────────────────────
+  0x0440: 0xE0, // р
+  0x0441: 0xE1, // с
+  0x0442: 0xE2, // т
+  0x0443: 0xE3, // у
+  0x0444: 0xE4, // ф
+  0x0445: 0xE5, // х
+  0x0446: 0xE6, // ц
+  0x0447: 0xE7, // ч
+  0x0448: 0xE8, // ш
+  0x0449: 0xE9, // щ
+  0x044A: 0xEA, // ъ
+  0x044B: 0xEB, // ы
+  0x044C: 0xEC, // ь
+  0x044D: 0xED, // э
+  0x044E: 0xEE, // ю
+  0x044F: 0xEF, // я
+  // ── Ё / ё ──────────────────────────────────────────────────────────────────
+  0x0401: 0xF0, // Ё
+  0x0451: 0xF1, // ё
+  // ── Punctuation / symbols ───────────────────────────────────────────────────
+  0x2022: 0xF9, // • (BULLET U+2022) → ∙ (bullet operator, CP866 0xF9)
+};
+
+/// Encodes [text] to a CP866 byte list.
+///
+/// - ASCII (0x00–0x7F) passes through unchanged.
+/// - Cyrillic code points are mapped via [_cp866Table].
+/// - Any other character is replaced with `?` (0x3F).
+List<int> encodeToCp866(String text) {
+  final result = <int>[];
+  for (final rune in text.runes) {
+    if (rune <= 0x7F) {
+      result.add(rune);
+    } else {
+      result.add(_cp866Table[rune] ?? 0x3F);
+    }
+  }
+  return result;
+}
