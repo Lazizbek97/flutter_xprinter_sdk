@@ -1,9 +1,9 @@
 #
 # CocoaPods spec for flutter_xprinter_sdk.
 #
-# Vendors `libPrinterSDK.a` (XPrinter iOS SDK, arm64 + x86_64 only).
-# `EXCLUDED_ARCHS[sdk=iphonesimulator*]=arm64` is required so Apple-Silicon
-# Macs can build the simulator target.
+# XPrinter's iOS SDK (`libPrinterSDK.a` + `Headers/`) lives in the HOST
+# app's `ios/Frameworks/` — XPrinter's licence is silent on redistribution
+# so we don't ship the binary.  `bin/setup.dart` places the files there.
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_xprinter_sdk'
@@ -24,33 +24,25 @@ Pod::Spec.new do |s|
   s.platform         = :ios, '12.0'
   s.dependency 'Flutter'
 
-  # Vendor the static library + its headers.  CocoaPods auto-links any
-  # `.a` declared in `vendored_libraries` into the pod's framework target;
-  # we must NOT add `-lPrinterSDK` ourselves or it'll be linked a second
-  # time into the host app's binary, producing duplicate Obj-C class
-  # registrations at runtime (POSPrinter, POSBLEManager, etc. → spurious
-  # crashes).
-  s.vendored_libraries = 'Frameworks/libPrinterSDK.a'
-  s.preserve_paths     = 'Frameworks/libPrinterSDK.a', 'Frameworks/Headers/*.h'
-
-  # Pod-target-only config: header path so our Obj-C glue can `#import`
-  # the SDK headers, and `-ObjC` so the SDK's Objective-C categories
-  # survive static-link dead-code elimination.  No `-l` here — vendored
-  # libs are auto-linked.  Apple-Silicon-Mac simulator skips arm64 (the
-  # vendored fat lib has arm64-device + x86_64-sim only).
+  # Header + library search paths point at the HOST app's ios/Frameworks/.
+  # `$(SRCROOT)` for a pod is `<host-ios>/Pods/flutter_xprinter_sdk/`, so
+  # `$(SRCROOT)/../../Frameworks/` resolves to `<host-ios>/Frameworks/`.
+  # `-lPrinterSDK` plus the search path makes the linker find
+  # `libPrinterSDK.a` there at link time.
   s.pod_target_xcconfig = {
-    'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/Frameworks/Headers"',
-    'OTHER_LDFLAGS' => '$(inherited) -ObjC',
+    'HEADER_SEARCH_PATHS' => '$(inherited) "$(SRCROOT)/../../Frameworks/Headers"',
+    'LIBRARY_SEARCH_PATHS' => '$(inherited) "$(SRCROOT)/../../Frameworks"',
+    'OTHER_LDFLAGS' => '$(inherited) -ObjC -lPrinterSDK',
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64',
     'DEFINES_MODULE' => 'YES',
   }
 
-  # Propagate only the simulator-arch exclusion to the host app — without
-  # this, Apple-Silicon Macs can't build the iOS simulator target.
+  # Propagate the simulator-arch exclusion to the host app — without this,
+  # Apple-Silicon Macs can't build the iOS simulator target.
   s.user_target_xcconfig = {
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64',
   }
 
-  # System frameworks the SDK relies on (per Documentation.md in the SDK).
+  # System frameworks the SDK relies on.
   s.frameworks = 'CoreBluetooth', 'SystemConfiguration', 'CFNetwork', 'UIKit'
 end

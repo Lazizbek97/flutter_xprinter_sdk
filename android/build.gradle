@@ -52,9 +52,12 @@ android {
 }
 
 dependencies {
-    // XPrinter SDK AAR — compileOnly so we can reference SDK classes during compilation
-    // without trying to bundle the AAR inside the plugin AAR (AGP does not support
-    // nested AARs).  The host app re-declares this AAR with `implementation` in its own
-    // android/app/libs/, which is wired up during part 4 of the plan.
-    compileOnly fileTree(dir: 'libs', include: ['*.aar'])
+    // XPrinter SDK AAR lives in the host app's android/app/libs/ — not in
+    // the plugin (AGP doesn't support nested AARs and XPrinter's licence is
+    // silent on redistribution).  `rootProject.projectDir` resolves to the
+    // host app's android/ folder regardless of how the plugin is loaded.
+    //
+    // The host app must also re-declare this with `implementation` for
+    // runtime linkage — `bin/setup.dart` does this automatically.
+    compileOnly fileTree(dir: "${rootProject.projectDir}/app/libs", include: ['*.aar'])
 }

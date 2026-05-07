@@ -40,90 +40,58 @@ flutter pub get
 
 ### 2. Download the XPrinter SDK
 
-This package does **not** ship XPrinter's vendor binaries (their licence doesn't allow redistribution). Download them yourself from:
+XPrinter's licence is silent on redistribution, so this package does **not** ship the vendor binaries. Download them yourself from:
 
 **<https://www.xprintertech.com/sdk.html>**
 
-You're not creating any files — everything you need is **inside the SDK zips**. Two separate downloads:
+Two zips (or unzipped folders):
 
-| Platform | Zip you want | Files inside the zip |
-|---|---|---|
-| **iOS** | "iOS POS SDK" (or similarly named — Objective-C SDK for receipt printers) | `libPrinterSDK.a` + a `Headers/` folder with about ten `.h` files (`POSPrinter.h`, `POSBLEManager.h`, `POSWIFIManager.h`, `POSCommand.h`, etc.) |
-| **Android** | "Android POS SDK" | a single `.aar` file, typically named `printer-lib-3.2.0.aar` |
+| Platform | Files you'll need from the zip |
+|---|---|
+| **iOS** | `libPrinterSDK.a` + the `Headers/` folder (~10 `.h` files: `POSPrinter.h`, `POSCommand.h`, `POSBLEManager.h`, `POSWIFIManager.h`, etc.) |
+| **Android** | `printer-lib-3.2.0.aar` (or compatible v3.x release) |
 
-Review XPrinter's licence terms before using these binaries in your app.
+### 3. Run the setup script
 
-### 3. Install on iOS
-
-After `flutter pub get`, the plugin lives at `~/.pub-cache/hosted/pub.dev/flutter_xprinter_sdk-<version>/`. Drop the SDK files into the plugin's `ios/Frameworks/` directory:
+From your Flutter project root:
 
 ```bash
-PLUGIN=~/.pub-cache/hosted/pub.dev/flutter_xprinter_sdk-0.1.0
-mkdir -p "$PLUGIN/ios/Frameworks"
-
-# Copy from wherever you unzipped the iOS SDK:
-cp -R /path/to/ios-sdk/Headers           "$PLUGIN/ios/Frameworks/"
-cp    /path/to/ios-sdk/libPrinterSDK.a   "$PLUGIN/ios/Frameworks/"
+dart run flutter_xprinter_sdk:setup \
+    --ios=~/Downloads/iOS-SDK-3.2.0 \
+    --android=~/Downloads/Android-SDK-3.2.0
 ```
 
-After the copy, the plugin folder should look like:
+`--ios` and `--android` accept either an unzipped folder or a `.zip` file directly. Use `--auto` to scan `~/Downloads` for them.
+
+The script copies the binaries into your app and patches `android/app/build.gradle(.kts)`:
 
 ```
-flutter_xprinter_sdk-0.1.0/
-└── ios/
-    └── Frameworks/
-        ├── libPrinterSDK.a       ← from the SDK zip
-        └── Headers/              ← from the SDK zip
-            ├── POSPrinter.h
-            ├── POSBLEManager.h
-            ├── POSWIFIManager.h
-            ├── POSCommand.h
-            └── … other .h files
-```
-
-Then run `pod install` in your app's `ios/` directory. CocoaPods picks up the vendored library through the plugin's podspec — no further wiring needed on the iOS side.
-
-> If you delete `~/.pub-cache`, run a deep clean, or upgrade the plugin version, you'll need to re-copy these files. For team projects, vendor the SDK in your repo and use a `path:` dependency instead.
-
-### 4. Install on Android
-
-Android Gradle doesn't allow nested AARs, so the host app must re-declare the AAR for runtime. **Without this step you'll get a `MissingPluginException`** at the first plugin method call (the plugin's Kotlin classes load fine, but the underlying `net.posprinter.*` symbols are missing from the runtime classpath).
-
-**Step 4a — copy the AAR into your *app's* libs/** (not the plugin's):
-
-```bash
-# From your Flutter app's root:
-mkdir -p android/app/libs
-cp /path/to/android-sdk/printer-lib-3.2.0.aar android/app/libs/
-```
-
-After this, your app's directory should contain:
-
-```
-my_flutter_app/
+your_flutter_app/
+├── ios/
+│   └── Frameworks/                 ← script puts iOS files here
+│       ├── libPrinterSDK.a
+│       └── Headers/
+│           ├── POSPrinter.h
+│           └── … other .h files
 └── android/
     └── app/
-        └── libs/
-            └── printer-lib-3.2.0.aar    ← from the SDK zip
+        ├── libs/                   ← script puts the AAR here
+        │   └── printer-lib-3.2.0.aar
+        └── build.gradle(.kts)      ← script adds `implementation fileTree(libs, *.aar)`
 ```
 
-**Step 4b — wire it up** in `android/app/build.gradle` (or `build.gradle.kts`):
+These files live in **your repo** — committed alongside your source, available on every clone, survives `flutter clean`. **No pub-cache editing.**
 
-Groovy (`build.gradle`):
-```gradle
-dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.aar'])
-}
+### 4. Final wiring
+
+```bash
+cd ios && pod install && cd ..
+flutter clean && flutter run
 ```
 
-Kotlin DSL (`build.gradle.kts`):
-```kotlin
-dependencies {
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
-}
-```
+That's it.
 
-Run `flutter clean && flutter run` afterwards — the first build picks up the AAR.
+> **Don't want to run the script?** Do steps 3-4 manually — copy the files to those exact paths, and add `implementation fileTree(dir: 'libs', include: ['*.aar'])` (or the Kotlin DSL equivalent) to `android/app/build.gradle(.kts)`'s `dependencies { … }` block.
 
 ### 5. Permissions
 
