@@ -54,8 +54,19 @@ void main(List<String> args) async {
   }
 
   print('');
-  print('✅ Done.  Next: cd ios && pod install   (iOS)');
-  print('         flutter clean && flutter run   (Android + iOS)');
+  print('✅ Setup complete.');
+  print('');
+  print('Next steps (run from your project root):');
+  print('  1. cd ios && pod install && cd ..');
+  print('  2. flutter clean && flutter run');
+  print('');
+  print('You still need to (script can\'t do these):');
+  print('  • Android 12+ runtime permissions — request bluetoothScan +');
+  print('    bluetoothConnect in your Dart code via permission_handler');
+  print('    BEFORE calling any plugin scan/connect method.  Add to your');
+  print('    pubspec.yaml:  permission_handler: ^11.3.1');
+  print('  • iOS simulator on Apple Silicon — XPrinter\'s static lib has no');
+  print('    arm64-simulator slice, so test on a REAL iPhone (not simulator).');
 }
 
 void _printUsage() {
@@ -104,6 +115,46 @@ Future<void> _installIos(Directory project, String input) async {
   await _copyDir(headers, '${dest.path}/Headers');
   print('  ✓ ios/Frameworks/libPrinterSDK.a');
   print('  ✓ ios/Frameworks/Headers/  (${await _countFiles(headers, '.h')} headers)');
+
+  await _patchInfoPlist(project);
+}
+
+/// Adds the Bluetooth usage-description strings to the host's Info.plist
+/// if they're missing.  Apple requires both keys for any app that scans /
+/// connects to BT peripherals; without them the OS silently denies access.
+Future<void> _patchInfoPlist(Directory project) async {
+  final plist = File('${project.path}/ios/Runner/Info.plist');
+  if (!await plist.exists()) {
+    _err('  ⚠ Info.plist not found at ${plist.path} — add Bluetooth usage strings manually.');
+    return;
+  }
+
+  var content = await plist.readAsString();
+  const usage = 'Used to connect to thermal receipt printers.';
+  final keys = <String, String>{
+    'NSBluetoothAlwaysUsageDescription': usage,
+    'NSBluetoothPeripheralUsageDescription': usage,
+  };
+
+  var added = 0;
+  for (final entry in keys.entries) {
+    if (content.contains('<key>${entry.key}</key>')) continue;
+    final block = '\t<key>${entry.key}</key>\n\t<string>${entry.value}</string>\n';
+    final closingDict = RegExp(r'</dict>\s*</plist>\s*$');
+    if (!closingDict.hasMatch(content)) {
+      _err('  ⚠ Info.plist has unexpected structure — add ${entry.key} manually.');
+      return;
+    }
+    content = content.replaceFirst(closingDict, '$block</dict>\n</plist>\n');
+    added++;
+  }
+
+  if (added > 0) {
+    await plist.writeAsString(content);
+    print('  ✓ ios/Runner/Info.plist  ($added Bluetooth usage description${added == 1 ? '' : 's'} added)');
+  } else {
+    print('  ✓ ios/Runner/Info.plist already has Bluetooth usage descriptions');
+  }
 }
 
 Future<Directory?> _autoFindIos() async {

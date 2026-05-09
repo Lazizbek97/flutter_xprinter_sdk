@@ -35,8 +35,10 @@ class _HomePageState extends State<HomePage> {
   int _paperSizeMm = 58;
   String _status = 'Idle';
 
-  /// Loads already-paired Bluetooth devices.  For live advertising
-  /// devices use `XprinterBluetooth.startDiscovery()` (stream API).
+  /// Combines `getBondedDevices` (Android Classic-BT paired devices —
+  /// returns nothing on iOS) with a 5-second `startDiscovery` BLE scan
+  /// (works on both platforms; triggers the iOS Core Bluetooth permission
+  /// prompt the first time).  Devices are deduped by Bluetooth address.
   Future<void> _scan() async {
     setState(() {
       _scanning = true;
@@ -47,12 +49,34 @@ class _HomePageState extends State<HomePage> {
         setState(() => _status = 'Bluetooth permission denied');
         return;
       }
+
+      final byAddress = <String, XprinterBluetoothDevice>{};
+
+      // 1. Bonded devices — instant, populates Android paired list.
       setState(() => _status = 'Loading paired devices…');
-      final devices = await XprinterBluetooth.getBondedDevices();
+      try {
+        for (final d in await XprinterBluetooth.getBondedDevices()) {
+          byAddress[d.address] = d;
+        }
+      } catch (_) {/* ignore — bonded list isn't supported on iOS */}
+
+      // 2. Active BLE scan — finds new devices and triggers the iOS
+      //    Core Bluetooth permission prompt.
+      setState(() => _status = 'Scanning for nearby devices…');
+      final stream =
+          XprinterBluetooth.startDiscovery(timeout: const Duration(seconds: 5));
+      await for (final d in stream) {
+        byAddress[d.address] = d;
+        setState(() {
+          _devices = byAddress.values.toList();
+          _selected ??= _devices.first;
+        });
+      }
+
       setState(() {
-        _devices = devices;
-        _selected = devices.isNotEmpty ? devices.first : null;
-        _status = 'Found ${devices.length} device(s)';
+        _devices = byAddress.values.toList();
+        _selected ??= _devices.isNotEmpty ? _devices.first : null;
+        _status = 'Found ${_devices.length} device(s)';
       });
     } catch (e) {
       setState(() => _status = 'Scan failed: $e');

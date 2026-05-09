@@ -2,8 +2,11 @@
 # CocoaPods spec for flutter_xprinter_sdk.
 #
 # XPrinter's iOS SDK (`libPrinterSDK.a` + `Headers/`) lives in the HOST
-# app's `ios/Frameworks/` — XPrinter's licence is silent on redistribution
-# so we don't ship the binary.  `bin/setup.dart` places the files there.
+# app's `ios/Frameworks/` — `bin/setup.dart` places it there.  The SDK
+# binary ships device slices only (no arm64-simulator), so we link the
+# library only for device builds (`OTHER_LDFLAGS[sdk=iphoneos*]`) — host
+# apps build cleanly on every simulator and the manager returns
+# `SIMULATOR_UNSUPPORTED` errors at runtime there.
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_xprinter_sdk'
@@ -13,7 +16,7 @@ Pod::Spec.new do |s|
     Bluetooth / USB / TCP connectivity and ESC/POS printing for XPrinter
     thermal printers, with first-class Cyrillic and image-dithering helpers.
   DESC
-  s.homepage         = 'https://github.com/lazizbek-fayziev/flutter_xprinter_sdk'
+  s.homepage         = 'https://github.com/Lazizbek97/flutter_xprinter_sdk'
   s.license          = { :type => 'MIT', :file => '../LICENSE' }
   s.author           = { 'Lazizbek Fayziev' => 'lazizbekfayziyev@gmail.com' }
   s.source           = { :path => '.' }
@@ -24,23 +27,21 @@ Pod::Spec.new do |s|
   s.platform         = :ios, '12.0'
   s.dependency 'Flutter'
 
-  # Header + library search paths point at the HOST app's ios/Frameworks/.
-  # `$(SRCROOT)` for a pod is `<host-ios>/Pods/flutter_xprinter_sdk/`, so
-  # `$(SRCROOT)/../../Frameworks/` resolves to `<host-ios>/Frameworks/`.
-  # `-lPrinterSDK` plus the search path makes the linker find
-  # `libPrinterSDK.a` there at link time.
+  # Header search path points at the HOST app's ios/Frameworks/.
+  # `$(PROJECT_DIR)` for a pod is `<host-ios>/Pods/` — works the same for
+  # both pub-cache installs and `path:` dev pods.
+  #
+  # `-lPrinterSDK` is only added on device builds (`[sdk=iphoneos*]`) —
+  # the static lib has no arm64-simulator slice, so simulator builds skip
+  # the library entirely.  Source files are guarded with
+  # `#if !TARGET_OS_SIMULATOR`, so the plugin compiles cleanly on
+  # simulator without referencing any SDK symbols.
   s.pod_target_xcconfig = {
-    'HEADER_SEARCH_PATHS' => '$(inherited) "$(SRCROOT)/../../Frameworks/Headers"',
-    'LIBRARY_SEARCH_PATHS' => '$(inherited) "$(SRCROOT)/../../Frameworks"',
-    'OTHER_LDFLAGS' => '$(inherited) -ObjC -lPrinterSDK',
-    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64',
+    'HEADER_SEARCH_PATHS' => '$(inherited) "$(PROJECT_DIR)/../Frameworks/Headers"',
+    'LIBRARY_SEARCH_PATHS[sdk=iphoneos*]' => '$(inherited) "$(PROJECT_DIR)/../Frameworks"',
+    'OTHER_LDFLAGS' => '$(inherited) -ObjC',
+    'OTHER_LDFLAGS[sdk=iphoneos*]' => '$(inherited) -ObjC -lPrinterSDK',
     'DEFINES_MODULE' => 'YES',
-  }
-
-  # Propagate the simulator-arch exclusion to the host app — without this,
-  # Apple-Silicon Macs can't build the iOS simulator target.
-  s.user_target_xcconfig = {
-    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'arm64',
   }
 
   # System frameworks the SDK relies on.

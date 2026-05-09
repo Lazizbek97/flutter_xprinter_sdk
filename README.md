@@ -281,4 +281,4 @@ The bundled XPrinter SDKs are NOT included in this distribution. Obtain them fro
 
 ## Contributing
 
-Issues and pull requests welcome at <https://github.com/lazizbek-fayziev/flutter_xprinter_sdk>.
+Issues and pull requests welcome at <https://github.com/Lazizbek97/flutter_xprinter_sdk>.

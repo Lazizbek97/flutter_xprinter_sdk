@@ -1,5 +1,13 @@
 #import "XprinterSdkManager.h"
 
+// XPrinter's `libPrinterSDK.a` ships device slices only (`arm64` for
+// device, `x86_64` for Intel-Mac simulator) — there is no `arm64` slice
+// for Apple-Silicon-Mac simulators.  Wrapping all SDK usage in
+// `#if !TARGET_OS_SIMULATOR` lets the host app build cleanly on every
+// simulator; calls into the manager just return a `SIMULATOR_UNSUPPORTED`
+// error.  Real-device builds use the full implementation.
+#if !TARGET_OS_SIMULATOR
+
 #import <CoreBluetooth/CoreBluetooth.h>
 #import <UIKit/UIKit.h>
 
@@ -814,3 +822,44 @@ static const int kDefaultBarcodeHeight = 162;
 }
 
 @end
+
+#else  // TARGET_OS_SIMULATOR — stub implementation that returns errors
+
+#import <Foundation/Foundation.h>
+
+@implementation XprinterSdkManager
+
+static FlutterError *_kSimError(void) {
+    return [FlutterError errorWithCode:@"SIMULATOR_UNSUPPORTED"
+                               message:@"XPrinter SDK is not available on iOS simulator (vendor library has no arm64-simulator slice). Test on a real device."
+                               details:nil];
+}
+
+- (void)connect:(NSDictionary *)args result:(FlutterResult)result          { result(_kSimError()); }
+- (void)disconnect:(FlutterResult)result                                   { result(_kSimError()); }
+- (void)isConnected:(FlutterResult)result                                  { result(@(NO)); }
+- (void)getBondedDevices:(FlutterResult)result                             { result(@[]); }
+- (void)initialize:(FlutterResult)result                                   { result(_kSimError()); }
+- (void)printText:(NSDictionary *)args result:(FlutterResult)result        { result(_kSimError()); }
+- (void)printBitmap:(NSDictionary *)args result:(FlutterResult)result      { result(_kSimError()); }
+- (void)printHorizontalLine:(NSDictionary *)args result:(FlutterResult)result { result(_kSimError()); }
+- (void)printQRCode:(NSDictionary *)args result:(FlutterResult)result      { result(_kSimError()); }
+- (void)printBarCode:(NSDictionary *)args result:(FlutterResult)result     { result(_kSimError()); }
+- (void)feedLine:(NSDictionary *)args result:(FlutterResult)result         { result(_kSimError()); }
+- (void)cutPaper:(NSDictionary *)args result:(FlutterResult)result         { result(_kSimError()); }
+- (void)selectCodePage:(NSDictionary *)args result:(FlutterResult)result   { result(_kSimError()); }
+- (void)setAlignment:(NSDictionary *)args result:(FlutterResult)result     { result(_kSimError()); }
+- (void)getStatus:(FlutterResult)result                                    { result(@0); }
+- (void)sendRawCommand:(NSDictionary *)args result:(FlutterResult)result   { result(_kSimError()); }
+
+// FlutterStreamHandler — discovery EventChannel always emits "no devices" on simulator.
+- (FlutterError *)onListenWithArguments:(id)arguments eventSink:(FlutterEventSink)events {
+    return nil;
+}
+- (FlutterError *)onCancelWithArguments:(id)arguments {
+    return nil;
+}
+
+@end
+
+#endif  // TARGET_OS_SIMULATOR
