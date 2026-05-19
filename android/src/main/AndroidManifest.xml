@@ -1,9 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Bluetooth — pre-31 needs BLUETOOTH/BLUETOOTH_ADMIN; 31+ needs SCAN/CONNECT. -->
-    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <!-- Bluetooth — declared without maxSdkVersion.  Some XPrinter SDK
+         code paths still call legacy BluetoothAdapter APIs on Android
+         12+ devices and require these permissions at runtime; capping
+         at API 30 caused SecurityException on certain MIUI / OEM-modified
+         devices.  SCAN/CONNECT below cover the normal Android 12+ paths. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <!-- We only scan to find printers — never to derive user location.  The
          neverForLocation flag drops the implicit fine-location requirement
          on Android 12+. -->

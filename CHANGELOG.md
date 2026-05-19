@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+### Fixed
+- **Android**: `BLUETOOTH` and `BLUETOOTH_ADMIN` permissions no longer capped at API 30.  Some XPrinter SDK code paths still call legacy `BluetoothAdapter` APIs on Android 12+ devices and require these permissions at runtime; capping them at `maxSdkVersion="30"` produced `SecurityException` on certain MIUI / OEM-modified devices at `XprinterConnection.connect`.
+
 ## 0.1.0
 
 Initial release.
