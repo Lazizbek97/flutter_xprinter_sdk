@@ -15,9 +15,13 @@ abstract final class XprinterConnection {
   ///
   /// - [XprinterConnectionType.bluetooth]: MAC address (e.g. `AA:BB:CC:00`)
   /// - [XprinterConnectionType.usb]: USB device name from
-  ///   `POSConnect.getUsbDevices` (e.g. `/dev/bus/usb/001/002`)
+  ///   `POSConnect.getUsbDevices` on Android. On Windows use an empty string
+  ///   for the first printer, or an XPrinter model / port number.
   /// - [XprinterConnectionType.tcp]: IPv4 address, optionally with `:port`
   ///   (default port is the printer's default — usually 9100)
+  ///
+  /// Direct Bluetooth connections are unavailable on Windows because the
+  /// vendor Windows SDK supports USB, TCP/IP, and serial ports only.
   ///
   /// Throws [XprinterException] on failure.  Returns when the underlying
   /// `connectSync` reports success (call blocks on the native side).

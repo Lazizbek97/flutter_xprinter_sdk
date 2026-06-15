@@ -39,11 +39,15 @@ class XprinterBluetoothDevice {
 }
 
 /// Bluetooth scanner + bonded-list helpers backed by the platform
-/// `BluetoothAdapter` APIs (Android only).
+/// native Bluetooth APIs on Android and iOS.
 ///
 /// The XPrinter SDK itself doesn't expose Bluetooth discovery — it
 /// expects you to hand it a MAC.  This class fills that gap so the app
 /// only needs one Bluetooth dependency for printers.
+///
+/// The vendor Windows SDK does not expose Bluetooth discovery, so Windows
+/// returns an empty bonded-device list and [startDiscovery] emits an
+/// `unsupported_transport` error.
 ///
 /// **Permissions:**
 /// - Android 12+ (API 31+): `BLUETOOTH_CONNECT` and `BLUETOOTH_SCAN`
@@ -51,7 +55,8 @@ class XprinterBluetoothDevice {
 /// - Pre-Android-12 (API < 31): `ACCESS_FINE_LOCATION` is required by the
 ///   OS to receive discovery results.
 abstract final class XprinterBluetooth {
-  static const EventChannel _discoveryChannel = EventChannel('dev.lazizbekfayziev.flutter_xprinter_sdk/discovery');
+  static const EventChannel _discoveryChannel =
+      EventChannel('dev.lazizbekfayziev.flutter_xprinter_sdk/discovery');
 
   /// Returns every Bluetooth device the OS already remembers as bonded —
   /// i.e. paired in the system Bluetooth settings.
@@ -66,7 +71,8 @@ abstract final class XprinterBluetooth {
   static Future<List<XprinterBluetoothDevice>> getBondedDevices() async {
     try {
       // ignore: lines_longer_than_80_chars
-      final raw = await xprinterMethodChannel.invokeListMethod<Map<dynamic, dynamic>>(
+      final raw =
+          await xprinterMethodChannel.invokeListMethod<Map<dynamic, dynamic>>(
         'getBondedDevices',
       );
       if (raw == null) return const [];

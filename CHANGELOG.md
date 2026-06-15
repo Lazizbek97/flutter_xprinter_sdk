@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+
+### Added
+- **Windows 10+** support through XPrinter's ESC/POS Windows SDK 2.0.4.
+- USB and TCP/IP connections on Windows.
+- Windows implementations for text, bitmap, divider, QR code, barcode, feed,
+  cut, code-page, alignment, status, and raw-command APIs.
+- The x64 `printer.sdk.dll` is bundled with the plugin and copied into the
+  Windows runner automatically by Flutter's build.
+
+### Platform note
+- The vendor Windows SDK does not provide direct Bluetooth discovery or
+  MAC-address connections. Windows Bluetooth calls return an explicit
+  `unsupported_transport` error.
+
 ## 0.1.1
 
 ### Fixed

@@ -5,6 +5,7 @@ Flutter plugin for **XPrinter** thermal receipt printers — connectivity, ESC/P
 Wraps the official XPrinter native SDKs:
 - **iOS** — `libPrinterSDK.a` (Objective-C)
 - **Android** — `printer-lib.aar` (Java/Kotlin, package `net.posprinter`)
+- **Windows 10+** — `printer.sdk.dll` (ESC/POS Windows SDK 2.x)
 
 Tested on XP-58IIT (58 mm BLE) and XP-C260M (80 mm BLE / USB / Ethernet).
 
@@ -40,16 +41,18 @@ flutter pub get
 
 ### 2. Download the XPrinter SDK
 
-XPrinter's licence is silent on redistribution, so this package does **not** ship the vendor binaries. Download them yourself from:
+The Windows x64 vendor DLL is bundled with this plugin. For iOS and Android,
+download the vendor SDK binaries yourself from:
 
 **<https://www.xprintertech.com/sdk.html>**
 
-Two zips (or unzipped folders):
+Download the SDKs needed by your target platforms:
 
 | Platform | Files you'll need from the zip |
 |---|---|
 | **iOS** | `libPrinterSDK.a` + the `Headers/` folder (~10 `.h` files: `POSPrinter.h`, `POSCommand.h`, `POSBLEManager.h`, `POSWIFIManager.h`, etc.) |
 | **Android** | `printer-lib-3.2.0.aar` (or compatible v3.x release) |
+| **Windows** | Nothing extra; `printer.sdk.dll` is bundled with the plugin |
 
 ### 3. Run the setup script
 
@@ -61,7 +64,8 @@ dart run flutter_xprinter_sdk:setup \
     --android=~/Downloads/Android-SDK-3.2.0
 ```
 
-`--ios` and `--android` accept either an unzipped folder or a `.zip` file directly. Use `--auto` to scan `~/Downloads` for them.
+Each argument accepts either an unzipped folder or a `.zip` file directly.
+Use `--auto` to scan `~/Downloads` for them.
 
 The script copies the binaries into your app and patches `android/app/build.gradle(.kts)`:
 
@@ -80,7 +84,8 @@ your_flutter_app/
         └── build.gradle(.kts)      ← script adds `implementation fileTree(libs, *.aar)`
 ```
 
-These files live in **your repo** — committed alongside your source, available on every clone, survives `flutter clean`. **No pub-cache editing.**
+These iOS and Android files live in **your app repo**. The Windows DLL lives
+inside the plugin and is copied into the runner automatically.
 
 ### 4. Final wiring
 
@@ -114,6 +119,11 @@ await [
 <key>NSBluetoothPeripheralUsageDescription</key>
 <string>Used to connect to thermal receipt printers.</string>
 ```
+
+**Windows.** The vendor SDK supports USB, TCP/IP, and serial ports. This
+plugin currently exposes USB and TCP through the existing connection API.
+Direct Bluetooth discovery and MAC-address connections are not available on
+Windows.
 
 ## Quick start
 
@@ -273,11 +283,18 @@ Pass `mode: XprinterImageMode.threshold` to force the hard-threshold path. Auto-
 **`net.posprinter.*` not found at link time on Android.**
 The vendor AAR isn't on the classpath. Either copy it to `<pub-cache>/.../android/libs/`, or vendor it in your app's `android/app/libs/` and add `implementation fileTree(...)` to your `app/build.gradle`.
 
+**Windows build says `printer.sdk.dll` was not found.**
+Make sure the plugin package contains
+`windows/xprinter_sdk/x64/printer.sdk.dll`, then run `flutter clean` and
+rebuild the application.
+
 ## Licence
 
 This wrapper is MIT-licensed (see [LICENSE](LICENSE)).
 
-The bundled XPrinter SDKs are NOT included in this distribution. Obtain them from <https://www.xprintertech.com/sdk.html> and review XPrinter Co., Ltd.'s licence terms before shipping in your app.
+The Windows x64 SDK DLL is included in this distribution. The iOS and Android
+SDK binaries are not. Review XPrinter Co., Ltd.'s licence terms before
+shipping the vendor binaries in your app.
 
 ## Contributing
 

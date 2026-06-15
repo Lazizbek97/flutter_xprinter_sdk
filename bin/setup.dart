@@ -34,7 +34,9 @@ void main(List<String> args) async {
 
   final project = await _findFlutterProject();
   if (project == null) {
-    _err('Run this from your Flutter project root (must contain pubspec.yaml + ios/ + android/).');
+    _err(
+      'Run this from a Flutter project root with pubspec.yaml and at least one platform folder.',
+    );
     exit(1);
   }
   print('• Flutter project: ${project.path}');
@@ -57,7 +59,7 @@ void main(List<String> args) async {
   print('✅ Setup complete.');
   print('');
   print('Next steps (run from your project root):');
-  print('  1. cd ios && pod install && cd ..');
+  print('  1. For iOS: cd ios && pod install && cd ..');
   print('  2. flutter clean && flutter run');
   print('');
   print('You still need to (script can\'t do these):');
@@ -74,7 +76,7 @@ void _printUsage() {
 flutter_xprinter_sdk setup — copies XPrinter SDK binaries into your Flutter app.
 
 USAGE
-  dart run flutter_xprinter_sdk:setup --ios=<path>     [--android=<path>]
+  dart run flutter_xprinter_sdk:setup --ios=<path> [--android=<path>]
   dart run flutter_xprinter_sdk:setup --auto
 
 OPTIONS
@@ -105,7 +107,9 @@ Future<void> _installIos(Directory project, String input) async {
   }
   final headers = await _findHeadersDir(source);
   if (headers == null) {
-    _err('  Headers/ folder not found (expected POSPrinter.h, POSCommand.h, …)');
+    _err(
+      '  Headers/ folder not found (expected POSPrinter.h, POSCommand.h, …)',
+    );
     return;
   }
 
@@ -114,7 +118,9 @@ Future<void> _installIos(Directory project, String input) async {
   await _copyFile(lib, '${dest.path}/libPrinterSDK.a');
   await _copyDir(headers, '${dest.path}/Headers');
   print('  ✓ ios/Frameworks/libPrinterSDK.a');
-  print('  ✓ ios/Frameworks/Headers/  (${await _countFiles(headers, '.h')} headers)');
+  print(
+    '  ✓ ios/Frameworks/Headers/  (${await _countFiles(headers, '.h')} headers)',
+  );
 
   await _patchInfoPlist(project);
 }
@@ -125,7 +131,9 @@ Future<void> _installIos(Directory project, String input) async {
 Future<void> _patchInfoPlist(Directory project) async {
   final plist = File('${project.path}/ios/Runner/Info.plist');
   if (!await plist.exists()) {
-    _err('  ⚠ Info.plist not found at ${plist.path} — add Bluetooth usage strings manually.');
+    _err(
+      '  ⚠ Info.plist not found at ${plist.path} — add Bluetooth usage strings manually.',
+    );
     return;
   }
 
@@ -139,10 +147,13 @@ Future<void> _patchInfoPlist(Directory project) async {
   var added = 0;
   for (final entry in keys.entries) {
     if (content.contains('<key>${entry.key}</key>')) continue;
-    final block = '\t<key>${entry.key}</key>\n\t<string>${entry.value}</string>\n';
+    final block =
+        '\t<key>${entry.key}</key>\n\t<string>${entry.value}</string>\n';
     final closingDict = RegExp(r'</dict>\s*</plist>\s*$');
     if (!closingDict.hasMatch(content)) {
-      _err('  ⚠ Info.plist has unexpected structure — add ${entry.key} manually.');
+      _err(
+        '  ⚠ Info.plist has unexpected structure — add ${entry.key} manually.',
+      );
       return;
     }
     content = content.replaceFirst(closingDict, '$block</dict>\n</plist>\n');
@@ -151,7 +162,9 @@ Future<void> _patchInfoPlist(Directory project) async {
 
   if (added > 0) {
     await plist.writeAsString(content);
-    print('  ✓ ios/Runner/Info.plist  ($added Bluetooth usage description${added == 1 ? '' : 's'} added)');
+    print(
+      '  ✓ ios/Runner/Info.plist  ($added Bluetooth usage description${added == 1 ? '' : 's'} added)',
+    );
   } else {
     print('  ✓ ios/Runner/Info.plist already has Bluetooth usage descriptions');
   }
@@ -200,7 +213,9 @@ Future<Directory?> _autoFindAndroid() async {
   if (!await downloads.exists()) return null;
   await for (final entry in downloads.list()) {
     final name = entry.path.toLowerCase();
-    if (entry is Directory && name.contains('android') && name.contains('sdk')) {
+    if (entry is Directory &&
+        name.contains('android') &&
+        name.contains('sdk')) {
       print('• Auto-found Android SDK: ${entry.path}');
       return entry;
     }
@@ -211,7 +226,9 @@ Future<Directory?> _autoFindAndroid() async {
 Future<void> _patchBuildGradle(Directory project) async {
   final groovy = File('${project.path}/android/app/build.gradle');
   final kts = File('${project.path}/android/app/build.gradle.kts');
-  final target = await kts.exists() ? kts : (await groovy.exists() ? groovy : null);
+  final target = await kts.exists()
+      ? kts
+      : (await groovy.exists() ? groovy : null);
   if (target == null) {
     _err('  Neither build.gradle nor build.gradle.kts found in android/app/');
     return;
@@ -220,8 +237,12 @@ Future<void> _patchBuildGradle(Directory project) async {
   final content = await target.readAsString();
   final marker = 'fileTree';
   final libsHint = 'libs';
-  if (content.contains(marker) && content.contains(libsHint) && content.contains('*.aar')) {
-    print('  ✓ ${target.uri.pathSegments.last} already has fileTree(libs, *.aar)');
+  if (content.contains(marker) &&
+      content.contains(libsHint) &&
+      content.contains('*.aar')) {
+    print(
+      '  ✓ ${target.uri.pathSegments.last} already has fileTree(libs, *.aar)',
+    );
     return;
   }
 
@@ -232,21 +253,26 @@ Future<void> _patchBuildGradle(Directory project) async {
 
   final patched = _injectDependency(content, depLine, isKts: isKts);
   if (patched == null) {
-    _err('  Could not auto-patch ${target.uri.pathSegments.last} — add this line manually:');
+    _err(
+      '  Could not auto-patch ${target.uri.pathSegments.last} — add this line manually:',
+    );
     _err('  $depLine');
     return;
   }
   await target.writeAsString(patched);
-  print('  ✓ patched ${target.uri.pathSegments.last} with implementation fileTree(libs, *.aar)');
+  print(
+    '  ✓ patched ${target.uri.pathSegments.last} with implementation fileTree(libs, *.aar)',
+  );
 }
 
 /// Adds [depLine] inside an existing top-level `dependencies { … }` block.
 /// Returns null if no such block exists.
-String? _injectDependency(String content, String depLine, {required bool isKts}) {
-  final pattern = RegExp(
-    r'(\n\s*dependencies\s*\{\s*)(\n)',
-    multiLine: true,
-  );
+String? _injectDependency(
+  String content,
+  String depLine, {
+  required bool isKts,
+}) {
+  final pattern = RegExp(r'(\n\s*dependencies\s*\{\s*)(\n)', multiLine: true);
   final match = pattern.firstMatch(content);
   if (match == null) {
     // No top-level dependencies block — append one.
@@ -264,9 +290,11 @@ Future<Directory?> _findFlutterProject() async {
   var dir = Directory.current;
   for (var i = 0; i < 6; i++) {
     final pubspec = File('${dir.path}/pubspec.yaml');
-    final ios = Directory('${dir.path}/ios');
-    final android = Directory('${dir.path}/android');
-    if (await pubspec.exists() && await ios.exists() && await android.exists()) {
+    final hasPlatform =
+        await Directory('${dir.path}/ios').exists() ||
+        await Directory('${dir.path}/android').exists() ||
+        await Directory('${dir.path}/windows').exists();
+    if (await pubspec.exists() && hasPlatform) {
       return dir;
     }
     final parent = dir.parent;
@@ -284,7 +312,8 @@ Future<Directory?> _resolveDir(String input) async {
   if (entity == FileSystemEntityType.directory) {
     return Directory(expanded);
   }
-  if (entity == FileSystemEntityType.file && expanded.toLowerCase().endsWith('.zip')) {
+  if (entity == FileSystemEntityType.file &&
+      expanded.toLowerCase().endsWith('.zip')) {
     final tmp = await Directory.systemTemp.createTemp('xprinter_');
     final result = await Process.run('unzip', ['-q', expanded, '-d', tmp.path]);
     if (result.exitCode != 0) {
@@ -293,7 +322,8 @@ Future<Directory?> _resolveDir(String input) async {
     }
     return tmp;
   }
-  if (entity == FileSystemEntityType.file && expanded.toLowerCase().endsWith('.aar')) {
+  if (entity == FileSystemEntityType.file &&
+      expanded.toLowerCase().endsWith('.aar')) {
     // User pointed directly at an AAR — wrap its parent as the source dir.
     return File(expanded).parent;
   }
@@ -315,8 +345,10 @@ Future<File?> _findFile(Directory root, Pattern name) async {
 Future<Directory?> _findHeadersDir(Directory root) async {
   // A folder named "Headers" containing POSPrinter.h or POSCommand.h.
   await for (final entry in root.list(recursive: true, followLinks: false)) {
-    if (entry is Directory && entry.uri.pathSegments.where((s) => s.isNotEmpty).last == 'Headers') {
-      final has = await File('${entry.path}/POSPrinter.h').exists() ||
+    if (entry is Directory &&
+        entry.uri.pathSegments.where((s) => s.isNotEmpty).last == 'Headers') {
+      final has =
+          await File('${entry.path}/POSPrinter.h').exists() ||
           await File('${entry.path}/POSCommand.h').exists();
       if (has) return entry;
     }

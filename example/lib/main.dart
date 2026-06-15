@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_xprinter_sdk/flutter_xprinter_sdk.dart';
-import 'package:permission_handler/permission_handler.dart';
+// import 'package:permission_handler/permission_handler.dart';
 
 void main() => runApp(const ExampleApp());
 
@@ -30,10 +30,21 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List<XprinterBluetoothDevice> _devices = const [];
   XprinterBluetoothDevice? _selected;
+  final TextEditingController _windowsAddressController =
+      TextEditingController(text: '192.168.1.100');
+  XprinterConnectionType _windowsConnectionType = XprinterConnectionType.tcp;
   bool _scanning = false;
   bool _printing = false;
   int _paperSizeMm = 58;
   String _status = 'Idle';
+
+  bool get _isWindows => Platform.isWindows;
+
+  @override
+  void dispose() {
+    _windowsAddressController.dispose();
+    super.dispose();
+  }
 
   /// Combines `getBondedDevices` (Android Classic-BT paired devices —
   /// returns nothing on iOS) with a 5-second `startDiscovery` BLE scan
@@ -89,29 +100,39 @@ class _HomePageState extends State<HomePage> {
   /// iOS handles this through `Info.plist` so this is a no-op there.
   Future<bool> _requestBluetoothPermissions() async {
     if (!Platform.isAndroid) return true;
-    final results = await [
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-    ].request();
-    return results.values.every((s) => s.isGranted);
+    return false;
+    // final results = await [
+    //   Permission.bluetoothScan,
+    //   Permission.bluetoothConnect,
+    // ].request();
+    // return results.values.every((s) => s.isGranted);
   }
 
   Future<void> _printDemoReceipt() async {
     final device = _selected;
-    if (device == null) {
+    if (!_isWindows && device == null) {
       setState(() => _status = 'Pick a device first');
+      return;
+    }
+
+    final connectionType =
+        _isWindows ? _windowsConnectionType : XprinterConnectionType.bluetooth;
+    final address =
+        _isWindows ? _windowsAddressController.text.trim() : device!.address;
+    if (connectionType == XprinterConnectionType.tcp && address.isEmpty) {
+      setState(() => _status = 'Enter the printer IP address');
       return;
     }
 
     setState(() {
       _printing = true;
-      _status = 'Connecting…';
+      _status = 'Connecting via ${connectionType.name}…';
     });
 
     try {
       await XprinterConnection.connect(
-        type: XprinterConnectionType.bluetooth,
-        address: device.address,
+        type: connectionType,
+        address: address,
       );
 
       await PosPrinter.initialize();
@@ -304,38 +325,44 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
               const SizedBox(height: 12),
-              FilledButton.icon(
-                icon: _scanning
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.bluetooth_searching),
-                label: Text(_scanning ? 'Scanning…' : 'Scan for printers'),
-                onPressed: _scanning ? null : _scan,
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: _devices.isEmpty
-                    ? const Center(child: Text('No devices yet — tap Scan'))
-                    : RadioGroup<XprinterBluetoothDevice>(
-                        groupValue: _selected,
-                        onChanged: (v) => setState(() => _selected = v),
-                        child: ListView.separated(
-                          itemCount: _devices.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (_, i) {
-                            final d = _devices[i];
-                            return RadioListTile<XprinterBluetoothDevice>(
-                              title: Text(d.name),
-                              subtitle: Text(d.address),
-                              value: d,
-                            );
-                          },
+              if (_isWindows) ...[
+                _buildWindowsConnectionForm(),
+                const Spacer(),
+              ] else ...[
+                FilledButton.icon(
+                  icon: _scanning
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.bluetooth_searching),
+                  label: Text(_scanning ? 'Scanning…' : 'Scan for printers'),
+                  onPressed: _scanning ? null : _scan,
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _devices.isEmpty
+                      ? const Center(child: Text('No devices yet — tap Scan'))
+                      : RadioGroup<XprinterBluetoothDevice>(
+                          groupValue: _selected,
+                          onChanged: (v) => setState(() => _selected = v),
+                          child: ListView.separated(
+                            itemCount: _devices.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1),
+                            itemBuilder: (_, i) {
+                              final d = _devices[i];
+                              return RadioListTile<XprinterBluetoothDevice>(
+                                title: Text(d.name),
+                                subtitle: Text(d.address),
+                                value: d,
+                              );
+                            },
+                          ),
                         ),
-                      ),
-              ),
+                ),
+              ],
               FilledButton.icon(
                 icon: _printing
                     ? const SizedBox(
@@ -345,8 +372,9 @@ class _HomePageState extends State<HomePage> {
                       )
                     : const Icon(Icons.print),
                 label: Text(_printing ? 'Printing…' : 'Print demo receipt'),
-                onPressed:
-                    (_printing || _selected == null) ? null : _printDemoReceipt,
+                onPressed: (_printing || (!_isWindows && _selected == null))
+                    ? null
+                    : _printDemoReceipt,
               ),
               const SizedBox(height: 8),
               Container(
@@ -365,6 +393,68 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWindowsConnectionForm() {
+    final isUsb = _windowsConnectionType == XprinterConnectionType.usb;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Windows connection',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            SegmentedButton<XprinterConnectionType>(
+              segments: const [
+                ButtonSegment(
+                  value: XprinterConnectionType.usb,
+                  icon: Icon(Icons.usb),
+                  label: Text('USB'),
+                ),
+                ButtonSegment(
+                  value: XprinterConnectionType.tcp,
+                  icon: Icon(Icons.lan),
+                  label: Text('TCP/IP'),
+                ),
+              ],
+              selected: {_windowsConnectionType},
+              onSelectionChanged: (selection) {
+                setState(() {
+                  _windowsConnectionType = selection.single;
+                  _windowsAddressController.text =
+                      _windowsConnectionType == XprinterConnectionType.usb
+                          ? ''
+                          : '192.168.1.100';
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _windowsAddressController,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                labelText: isUsb
+                    ? 'USB model / port (optional)'
+                    : 'Printer IP address',
+                hintText: isUsb ? 'Empty = first USB printer' : '192.168.1.100',
+                helperText: isUsb
+                    ? 'Examples: 4B-2054A or USB031'
+                    : 'Optional port: 192.168.1.100:9100',
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'The Windows SDK supports USB and TCP/IP. '
+              'Bluetooth is not available on Windows.',
+            ),
+          ],
         ),
       ),
     );
