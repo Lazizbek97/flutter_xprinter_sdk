@@ -39,49 +39,10 @@ dependencies:
 flutter pub get
 ```
 
-### 2. Download the XPrinter SDK
+### 2. Install platform dependencies
 
-The Android and Windows vendor binaries are bundled with this plugin. For iOS,
-download the vendor SDK binary and headers yourself from:
-
-**<https://www.xprintertech.com/sdk.html>**
-
-Download the SDKs needed by your target platforms:
-
-| Platform | Files you'll need from the zip |
-|---|---|
-| **iOS** | `libPrinterSDK.a` + the `Headers/` folder (~10 `.h` files: `POSPrinter.h`, `POSCommand.h`, `POSBLEManager.h`, `POSWIFIManager.h`, etc.) |
-| **Android** | Nothing extra; `printer-lib-3.2.0.aar` is bundled |
-| **Windows** | Nothing extra; `printer.sdk.dll` is bundled with the plugin |
-
-### 3. Run the setup script
-
-From your Flutter project root:
-
-```bash
-dart run flutter_xprinter_sdk:setup \
-    --ios=~/Downloads/iOS-SDK-3.2.0
-```
-
-Each argument accepts either an unzipped folder or a `.zip` file directly.
-Use `--auto` to scan `~/Downloads` for them.
-
-The script copies the iOS binary and headers into your app:
-
-```
-your_flutter_app/
-└── ios/
-    └── Frameworks/
-        ├── libPrinterSDK.a
-        └── Headers/
-            ├── POSPrinter.h
-            └── … other .h files
-```
-
-The Android AAR and Windows DLL live inside the plugin and are linked into the
-host application automatically.
-
-### 4. Final wiring
+The iOS static library and headers, Android AAR, and Windows DLL are bundled
+with the plugin and linked into the host application automatically.
 
 ```bash
 cd ios && pod install && cd ..
@@ -90,10 +51,7 @@ flutter clean && flutter run
 
 That's it.
 
-> **Don't want to run the script?** Copy the iOS files to the paths above and
-> run `pod install` manually.
-
-### 5. Permissions
+### 3. Permissions
 
 **Android.** The plugin's `AndroidManifest.xml` already declares the Bluetooth + USB + Internet permissions. **However**, on Android 12+ (API 31+) you must request `BLUETOOTH_SCAN` and `BLUETOOTH_CONNECT` at runtime before calling any of the scan/connect methods. The example app uses [`permission_handler`](https://pub.dev/packages/permission_handler):
 
@@ -288,9 +246,9 @@ rebuild the application.
 
 This wrapper is MIT-licensed (see [LICENSE](LICENSE)).
 
-The Android and Windows SDK binaries are included in this distribution. The
-iOS SDK binary is not. Review XPrinter Co., Ltd.'s licence terms before
-shipping the vendor binaries in your app.
+The iOS, Android, and Windows SDK binaries are included in this distribution.
+Review XPrinter Co., Ltd.'s licence terms before shipping the vendor binaries
+in your app.
 
 ## Contributing
 

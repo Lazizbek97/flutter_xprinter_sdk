@@ -1,7 +1,3 @@
-# iOS vendor binary is installed separately by the package setup command.
-ios/Frameworks/libPrinterSDK.a
-ios/Frameworks/Headers/
-
 # Dart / Flutter build artefacts
 .dart_tool/
 .flutter-plugins

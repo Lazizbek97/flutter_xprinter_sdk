@@ -1,9 +1,3 @@
-# The iOS vendor binary is installed separately and is not published.
-ios/Frameworks/libPrinterSDK.a
-ios/Frameworks/Headers/
-example/ios/Frameworks/libPrinterSDK.a
-example/ios/Frameworks/Headers/
-
 # Build artefacts.
 .dart_tool/
 .flutter-plugins

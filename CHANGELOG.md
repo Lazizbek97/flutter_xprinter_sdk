@@ -11,6 +11,8 @@
   Windows runner automatically by Flutter's build.
 - The Android `printer-lib-3.2.0.aar` is bundled with the plugin, including
   its native libraries, so host apps no longer need a separate AAR copy.
+- The iOS `libPrinterSDK.a` and vendor headers are bundled with the plugin,
+  so host apps no longer need to run the setup command.
 
 ### Platform note
 - The vendor Windows SDK does not provide direct Bluetooth discovery or

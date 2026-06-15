@@ -1,8 +1,7 @@
 #import "XprinterSdkManager.h"
 
-// XPrinter's `libPrinterSDK.a` ships device slices only (`arm64` for
-// device, `x86_64` for Intel-Mac simulator) — there is no `arm64` slice
-// for Apple-Silicon-Mac simulators.  Wrapping all SDK usage in
+// XPrinter's `libPrinterSDK.a` has an `arm64` device slice and an `x86_64`
+// legacy simulator slice, but no `arm64` simulator slice. Wrapping SDK usage in
 // `#if !TARGET_OS_SIMULATOR` lets the host app build cleanly on every
 // simulator; calls into the manager just return a `SIMULATOR_UNSUPPORTED`
 // error.  Real-device builds use the full implementation.
