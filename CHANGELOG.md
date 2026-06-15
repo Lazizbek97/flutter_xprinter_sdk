@@ -9,6 +9,8 @@
   cut, code-page, alignment, status, and raw-command APIs.
 - The x64 `printer.sdk.dll` is bundled with the plugin and copied into the
   Windows runner automatically by Flutter's build.
+- The Android `printer-lib-3.2.0.aar` is bundled with the plugin, including
+  its native libraries, so host apps no longer need a separate AAR copy.
 
 ### Platform note
 - The vendor Windows SDK does not provide direct Bluetooth discovery or

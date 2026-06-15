@@ -42,10 +42,3 @@ android {
 flutter {
     source = "../.."
 }
-
-// XPrinter SDK AAR — must be `implementation` here (not just in the plugin)
-// so the `net.posprinter.*` classes are present at runtime.  AGP doesn't
-// support nested AARs, hence the host app re-declares it.
-dependencies {
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
-}

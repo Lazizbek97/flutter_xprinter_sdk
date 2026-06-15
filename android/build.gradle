@@ -13,10 +13,15 @@ buildscript {
     }
 }
 
+def xprinterPluginDir = project.projectDir
+
 rootProject.allprojects {
     repositories {
         google()
         mavenCentral()
+        flatDir {
+            dirs "${xprinterPluginDir}/libs"
+        }
     }
 }
 
@@ -52,12 +57,5 @@ android {
 }
 
 dependencies {
-    // XPrinter SDK AAR lives in the host app's android/app/libs/ — not in
-    // the plugin (AGP doesn't support nested AARs and XPrinter's licence is
-    // silent on redistribution).  `rootProject.projectDir` resolves to the
-    // host app's android/ folder regardless of how the plugin is loaded.
-    //
-    // The host app must also re-declare this with `implementation` for
-    // runtime linkage — `bin/setup.dart` does this automatically.
-    compileOnly fileTree(dir: "${rootProject.projectDir}/app/libs", include: ['*.aar'])
+    implementation(name: 'printer-lib-3.2.0', ext: 'aar')
 }

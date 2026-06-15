@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_xprinter_sdk/flutter_xprinter_sdk.dart';
-// import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() => runApp(const ExampleApp());
 
@@ -100,12 +100,12 @@ class _HomePageState extends State<HomePage> {
   /// iOS handles this through `Info.plist` so this is a no-op there.
   Future<bool> _requestBluetoothPermissions() async {
     if (!Platform.isAndroid) return true;
-    return false;
-    // final results = await [
-    //   Permission.bluetoothScan,
-    //   Permission.bluetoothConnect,
-    // ].request();
-    // return results.values.every((s) => s.isGranted);
+    // return false;
+    final results = await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+    ].request();
+    return results.values.every((s) => s.isGranted);
   }
 
   Future<void> _printDemoReceipt() async {

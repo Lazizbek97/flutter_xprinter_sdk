@@ -2,15 +2,11 @@
 //
 // Setup helper for flutter_xprinter_sdk.
 //
-// Copies user-downloaded XPrinter SDK files into the host Flutter app:
-// - iOS:     <project>/ios/Frameworks/libPrinterSDK.a + Headers/
-// - Android: <project>/android/app/libs/printer-lib-*.aar
-//
-// Also patches android/app/build.gradle(.kts) with the
-// `implementation fileTree(libs, *.aar)` line if missing.
+// Copies user-downloaded XPrinter iOS SDK files into the host Flutter app:
+// <project>/ios/Frameworks/libPrinterSDK.a + Headers/
 //
 // Usage:
-//   dart run flutter_xprinter_sdk:setup --ios=<path> --android=<path>
+//   dart run flutter_xprinter_sdk:setup --ios=<path>
 //   dart run flutter_xprinter_sdk:setup --auto    (scans ~/Downloads)
 //
 // Each --path may point at either a .zip file or an unzipped directory.
@@ -24,10 +20,9 @@ void main(List<String> args) async {
   }
 
   final iosPath = _argValue(args, '--ios');
-  final androidPath = _argValue(args, '--android');
   final auto = args.contains('--auto');
 
-  if (iosPath == null && androidPath == null && !auto) {
+  if (iosPath == null && !auto) {
     _printUsage();
     exit(1);
   }
@@ -48,13 +43,6 @@ void main(List<String> args) async {
     if (found != null) await _installIos(project, found.path);
   }
 
-  if (androidPath != null) {
-    await _installAndroid(project, androidPath);
-  } else if (auto) {
-    final found = await _autoFindAndroid();
-    if (found != null) await _installAndroid(project, found.path);
-  }
-
   print('');
   print('✅ Setup complete.');
   print('');
@@ -73,22 +61,20 @@ void main(List<String> args) async {
 
 void _printUsage() {
   stdout.writeln('''
-flutter_xprinter_sdk setup — copies XPrinter SDK binaries into your Flutter app.
+flutter_xprinter_sdk setup — copies the XPrinter iOS SDK into your Flutter app.
 
 USAGE
-  dart run flutter_xprinter_sdk:setup --ios=<path> [--android=<path>]
+  dart run flutter_xprinter_sdk:setup --ios=<path>
   dart run flutter_xprinter_sdk:setup --auto
 
 OPTIONS
   --ios=<path>      Path to the iOS XPrinter SDK (.zip or unzipped directory)
-  --android=<path>  Path to the Android XPrinter SDK (.zip or unzipped directory)
-  --auto            Scan ~/Downloads for SDK files automatically
+  --auto            Scan ~/Downloads for the iOS SDK automatically
   -h, --help        Show this help
 
 EXAMPLES
   dart run flutter_xprinter_sdk:setup \\
-      --ios=~/Downloads/iOS-SDK-3.2.0 \\
-      --android=~/Downloads/Android-SDK-3.2.0/printer-lib-3.2.0.aar
+      --ios=~/Downloads/iOS-SDK-3.2.0
 ''');
 }
 
@@ -184,114 +170,13 @@ Future<Directory?> _autoFindIos() async {
   return null;
 }
 
-// ── Android ──────────────────────────────────────────────────────────────
-
-Future<void> _installAndroid(Directory project, String input) async {
-  print('');
-  print('▶ Android');
-  final source = await _resolveDir(input);
-  if (source == null) return;
-
-  final aar = await _findFile(source, RegExp(r'^printer-lib-.*\.aar$'));
-  if (aar == null) {
-    _err('  No printer-lib-*.aar found in ${source.path}');
-    return;
-  }
-
-  final libs = Directory('${project.path}/android/app/libs');
-  await libs.create(recursive: true);
-  final destAar = '${libs.path}/${aar.uri.pathSegments.last}';
-  await _copyFile(aar, destAar);
-  print('  ✓ android/app/libs/${aar.uri.pathSegments.last}');
-
-  await _patchBuildGradle(project);
-}
-
-Future<Directory?> _autoFindAndroid() async {
-  final home = Platform.environment['HOME'] ?? '';
-  final downloads = Directory('$home/Downloads');
-  if (!await downloads.exists()) return null;
-  await for (final entry in downloads.list()) {
-    final name = entry.path.toLowerCase();
-    if (entry is Directory &&
-        name.contains('android') &&
-        name.contains('sdk')) {
-      print('• Auto-found Android SDK: ${entry.path}');
-      return entry;
-    }
-  }
-  return null;
-}
-
-Future<void> _patchBuildGradle(Directory project) async {
-  final groovy = File('${project.path}/android/app/build.gradle');
-  final kts = File('${project.path}/android/app/build.gradle.kts');
-  final target = await kts.exists()
-      ? kts
-      : (await groovy.exists() ? groovy : null);
-  if (target == null) {
-    _err('  Neither build.gradle nor build.gradle.kts found in android/app/');
-    return;
-  }
-
-  final content = await target.readAsString();
-  final marker = 'fileTree';
-  final libsHint = 'libs';
-  if (content.contains(marker) &&
-      content.contains(libsHint) &&
-      content.contains('*.aar')) {
-    print(
-      '  ✓ ${target.uri.pathSegments.last} already has fileTree(libs, *.aar)',
-    );
-    return;
-  }
-
-  final isKts = target.path.endsWith('.kts');
-  final depLine = isKts
-      ? '    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))'
-      : "    implementation fileTree(dir: 'libs', include: ['*.aar'])";
-
-  final patched = _injectDependency(content, depLine, isKts: isKts);
-  if (patched == null) {
-    _err(
-      '  Could not auto-patch ${target.uri.pathSegments.last} — add this line manually:',
-    );
-    _err('  $depLine');
-    return;
-  }
-  await target.writeAsString(patched);
-  print(
-    '  ✓ patched ${target.uri.pathSegments.last} with implementation fileTree(libs, *.aar)',
-  );
-}
-
-/// Adds [depLine] inside an existing top-level `dependencies { … }` block.
-/// Returns null if no such block exists.
-String? _injectDependency(
-  String content,
-  String depLine, {
-  required bool isKts,
-}) {
-  final pattern = RegExp(r'(\n\s*dependencies\s*\{\s*)(\n)', multiLine: true);
-  final match = pattern.firstMatch(content);
-  if (match == null) {
-    // No top-level dependencies block — append one.
-    return '$content\n\ndependencies {\n$depLine\n}\n';
-  }
-  return content.replaceFirst(
-    pattern,
-    '${match.group(1)}\n$depLine${match.group(2)}',
-  );
-}
-
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 Future<Directory?> _findFlutterProject() async {
   var dir = Directory.current;
   for (var i = 0; i < 6; i++) {
     final pubspec = File('${dir.path}/pubspec.yaml');
-    final hasPlatform =
-        await Directory('${dir.path}/ios').exists() ||
+    final hasPlatform = await Directory('${dir.path}/ios').exists() ||
         await Directory('${dir.path}/android').exists() ||
         await Directory('${dir.path}/windows').exists();
     if (await pubspec.exists() && hasPlatform) {
@@ -322,11 +207,6 @@ Future<Directory?> _resolveDir(String input) async {
     }
     return tmp;
   }
-  if (entity == FileSystemEntityType.file &&
-      expanded.toLowerCase().endsWith('.aar')) {
-    // User pointed directly at an AAR — wrap its parent as the source dir.
-    return File(expanded).parent;
-  }
   _err('  Path not found or unsupported: $input');
   return null;
 }
@@ -347,8 +227,7 @@ Future<Directory?> _findHeadersDir(Directory root) async {
   await for (final entry in root.list(recursive: true, followLinks: false)) {
     if (entry is Directory &&
         entry.uri.pathSegments.where((s) => s.isNotEmpty).last == 'Headers') {
-      final has =
-          await File('${entry.path}/POSPrinter.h').exists() ||
+      final has = await File('${entry.path}/POSPrinter.h').exists() ||
           await File('${entry.path}/POSCommand.h').exists();
       if (has) return entry;
     }

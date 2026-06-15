@@ -41,8 +41,8 @@ flutter pub get
 
 ### 2. Download the XPrinter SDK
 
-The Windows x64 vendor DLL is bundled with this plugin. For iOS and Android,
-download the vendor SDK binaries yourself from:
+The Android and Windows vendor binaries are bundled with this plugin. For iOS,
+download the vendor SDK binary and headers yourself from:
 
 **<https://www.xprintertech.com/sdk.html>**
 
@@ -51,7 +51,7 @@ Download the SDKs needed by your target platforms:
 | Platform | Files you'll need from the zip |
 |---|---|
 | **iOS** | `libPrinterSDK.a` + the `Headers/` folder (~10 `.h` files: `POSPrinter.h`, `POSCommand.h`, `POSBLEManager.h`, `POSWIFIManager.h`, etc.) |
-| **Android** | `printer-lib-3.2.0.aar` (or compatible v3.x release) |
+| **Android** | Nothing extra; `printer-lib-3.2.0.aar` is bundled |
 | **Windows** | Nothing extra; `printer.sdk.dll` is bundled with the plugin |
 
 ### 3. Run the setup script
@@ -60,32 +60,26 @@ From your Flutter project root:
 
 ```bash
 dart run flutter_xprinter_sdk:setup \
-    --ios=~/Downloads/iOS-SDK-3.2.0 \
-    --android=~/Downloads/Android-SDK-3.2.0
+    --ios=~/Downloads/iOS-SDK-3.2.0
 ```
 
 Each argument accepts either an unzipped folder or a `.zip` file directly.
 Use `--auto` to scan `~/Downloads` for them.
 
-The script copies the binaries into your app and patches `android/app/build.gradle(.kts)`:
+The script copies the iOS binary and headers into your app:
 
 ```
 your_flutter_app/
-├── ios/
-│   └── Frameworks/                 ← script puts iOS files here
-│       ├── libPrinterSDK.a
-│       └── Headers/
-│           ├── POSPrinter.h
-│           └── … other .h files
-└── android/
-    └── app/
-        ├── libs/                   ← script puts the AAR here
-        │   └── printer-lib-3.2.0.aar
-        └── build.gradle(.kts)      ← script adds `implementation fileTree(libs, *.aar)`
+└── ios/
+    └── Frameworks/
+        ├── libPrinterSDK.a
+        └── Headers/
+            ├── POSPrinter.h
+            └── … other .h files
 ```
 
-These iOS and Android files live in **your app repo**. The Windows DLL lives
-inside the plugin and is copied into the runner automatically.
+The Android AAR and Windows DLL live inside the plugin and are linked into the
+host application automatically.
 
 ### 4. Final wiring
 
@@ -96,7 +90,8 @@ flutter clean && flutter run
 
 That's it.
 
-> **Don't want to run the script?** Do steps 3-4 manually — copy the files to those exact paths, and add `implementation fileTree(dir: 'libs', include: ['*.aar'])` (or the Kotlin DSL equivalent) to `android/app/build.gradle(.kts)`'s `dependencies { … }` block.
+> **Don't want to run the script?** Copy the iOS files to the paths above and
+> run `pod install` manually.
 
 ### 5. Permissions
 
@@ -281,7 +276,8 @@ The image had transparent pixels and the SDK rendered them as black. `XprinterIm
 Pass `mode: XprinterImageMode.threshold` to force the hard-threshold path. Auto-detection can misclassify small upscaled icons as photo-like.
 
 **`net.posprinter.*` not found at link time on Android.**
-The vendor AAR isn't on the classpath. Either copy it to `<pub-cache>/.../android/libs/`, or vendor it in your app's `android/app/libs/` and add `implementation fileTree(...)` to your `app/build.gradle`.
+Make sure the plugin package contains
+`android/libs/printer-lib-3.2.0.aar`, then run `flutter clean` and rebuild.
 
 **Windows build says `printer.sdk.dll` was not found.**
 Make sure the plugin package contains
@@ -292,8 +288,8 @@ rebuild the application.
 
 This wrapper is MIT-licensed (see [LICENSE](LICENSE)).
 
-The Windows x64 SDK DLL is included in this distribution. The iOS and Android
-SDK binaries are not. Review XPrinter Co., Ltd.'s licence terms before
+The Android and Windows SDK binaries are included in this distribution. The
+iOS SDK binary is not. Review XPrinter Co., Ltd.'s licence terms before
 shipping the vendor binaries in your app.
 
 ## Contributing
