@@ -2,10 +2,16 @@
 
 Flutter plugin for **XPrinter** thermal receipt printers — connectivity, ESC/POS commands, **first-class Cyrillic support**, **photo dithering**, and **paper-size-aware** layout helpers (58 / 72 / 80 mm).
 
-Wraps the official XPrinter native SDKs:
-- **iOS** — `libPrinterSDK.a` (Objective-C)
-- **Android** — `printer-lib.aar` (Java/Kotlin, package `net.posprinter`)
-- **Windows 10+** — `printer.sdk.dll` (ESC/POS Windows SDK 2.x)
+## Bundled native SDK versions
+
+This release bundles the official XPrinter native SDKs with the plugin, so
+you do **not** need to download them separately or run a setup script.
+
+| Platform | Bundled XPrinter SDK |
+|---|---|
+| **iOS** | XPrinter PrinterSDK **v2.3.0** (`libPrinterSDK.a` + `Headers/`) |
+| **Android** | XPrinter `printer-lib-3.2.0.aar` |
+| **Windows 10+** | XPrinter ESC/POS Windows SDK **v2.0.4** (`printer.sdk.dll`) |
 
 Tested on XP-58IIT (58 mm BLE) and XP-C260M (80 mm BLE / USB / Ethernet).
 
@@ -50,6 +56,9 @@ flutter clean && flutter run
 ```
 
 That's it.
+
+If you install from pub.dev, there is no separate XPrinter download or vendor
+setup step.
 
 ### 3. Permissions
 

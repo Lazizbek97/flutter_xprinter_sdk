@@ -7,8 +7,8 @@ The example prints the same full receipt on:
 
 ## Windows setup
 
-The plugin bundles the vendor x64 `printer.sdk.dll`, so no separate Windows
-SDK installation is required. Run:
+The plugin bundles the vendor x64 `printer.sdk.dll` from XPrinter Windows SDK
+v2.0.4, so no separate Windows SDK installation is required. Run:
 
 ```bash
 flutter run -d windows
