@@ -1,4 +1,6 @@
 # Dart / Flutter build artefacts
+.build/
+.swiftpm/
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
