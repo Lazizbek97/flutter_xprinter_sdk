@@ -1,4 +1,4 @@
-/// Flutter plugin for the XPrinter Android SDK (`net.posprinter` v3.2.0).
+/// Flutter plugin for the XPrinter Android, iOS, and Windows SDKs.
 ///
 /// Exposes a connection layer (Bluetooth / USB / TCP) and a receipt-relevant
 /// subset of `POSPrinter` print methods.  See the package README for the full

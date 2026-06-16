@@ -1,11 +1,6 @@
-# Vendor binaries — XPrinter SDK is proprietary, NOT redistributable.
-# Users download these from https://www.xprintertech.com/sdk.html themselves.
-ios/Frameworks/libPrinterSDK.a
-ios/Frameworks/Headers/
-android/libs/printer-lib-*.aar
-example/android/app/libs/printer-lib-*.aar
-
 # Dart / Flutter build artefacts
+.build/
+.swiftpm/
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -59,3 +54,6 @@ example/android/local.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# FVM Version Cache
+.fvm/

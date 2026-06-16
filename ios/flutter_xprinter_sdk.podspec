@@ -1,12 +1,10 @@
 #
 # CocoaPods spec for flutter_xprinter_sdk.
 #
-# XPrinter's iOS SDK (`libPrinterSDK.a` + `Headers/`) lives in the HOST
-# app's `ios/Frameworks/` — `bin/setup.dart` places it there.  The SDK
-# binary ships device slices only (no arm64-simulator), so we link the
-# library only for device builds (`OTHER_LDFLAGS[sdk=iphoneos*]`) — host
-# apps build cleanly on every simulator and the manager returns
-# `SIMULATOR_UNSUPPORTED` errors at runtime there.
+# XPrinter's iOS SDK (`libPrinterSDK.a` + `Headers/`) is bundled in this
+# plugin. The arm64 slice targets physical devices, so we link the library
+# only for device builds (`OTHER_LDFLAGS[sdk=iphoneos*]`). Simulator builds
+# skip the library and the manager returns `SIMULATOR_UNSUPPORTED`.
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_xprinter_sdk'
@@ -21,24 +19,19 @@ Pod::Spec.new do |s|
   s.author           = { 'Lazizbek Fayziev' => 'lazizbekfayziyev@gmail.com' }
   s.source           = { :path => '.' }
 
-  s.source_files     = 'Classes/**/*.{h,m}'
-  s.public_header_files = 'Classes/**/*.h'
+  s.source_files     = 'flutter_xprinter_sdk/Sources/flutter_xprinter_sdk/**/*.{h,m}'
+  s.public_header_files = 'flutter_xprinter_sdk/Sources/flutter_xprinter_sdk/include/**/*.h'
+  s.preserve_paths   = 'flutter_xprinter_sdk/Frameworks/**/*'
 
   s.platform         = :ios, '12.0'
   s.dependency 'Flutter'
 
-  # Header search path points at the HOST app's ios/Frameworks/.
-  # `$(PROJECT_DIR)` for a pod is `<host-ios>/Pods/` — works the same for
-  # both pub-cache installs and `path:` dev pods.
-  #
   # `-lPrinterSDK` is only added on device builds (`[sdk=iphoneos*]`) —
-  # the static lib has no arm64-simulator slice, so simulator builds skip
-  # the library entirely.  Source files are guarded with
-  # `#if !TARGET_OS_SIMULATOR`, so the plugin compiles cleanly on
-  # simulator without referencing any SDK symbols.
+  # source files are guarded with `#if !TARGET_OS_SIMULATOR`, so the plugin
+  # compiles cleanly on simulator without referencing SDK symbols.
   s.pod_target_xcconfig = {
-    'HEADER_SEARCH_PATHS' => '$(inherited) "$(PROJECT_DIR)/../Frameworks/Headers"',
-    'LIBRARY_SEARCH_PATHS[sdk=iphoneos*]' => '$(inherited) "$(PROJECT_DIR)/../Frameworks"',
+    'HEADER_SEARCH_PATHS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/flutter_xprinter_sdk/Frameworks/Headers"',
+    'LIBRARY_SEARCH_PATHS[sdk=iphoneos*]' => '$(inherited) "$(PODS_TARGET_SRCROOT)/flutter_xprinter_sdk/Frameworks"',
     'OTHER_LDFLAGS' => '$(inherited) -ObjC',
     'OTHER_LDFLAGS[sdk=iphoneos*]' => '$(inherited) -ObjC -lPrinterSDK',
     'DEFINES_MODULE' => 'YES',

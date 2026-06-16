@@ -2,9 +2,16 @@
 
 Flutter plugin for **XPrinter** thermal receipt printers — connectivity, ESC/POS commands, **first-class Cyrillic support**, **photo dithering**, and **paper-size-aware** layout helpers (58 / 72 / 80 mm).
 
-Wraps the official XPrinter native SDKs:
-- **iOS** — `libPrinterSDK.a` (Objective-C)
-- **Android** — `printer-lib.aar` (Java/Kotlin, package `net.posprinter`)
+## Bundled native SDK versions
+
+This release bundles the official XPrinter native SDKs with the plugin, so
+you do **not** need to download them separately or run a setup script.
+
+| Platform | Bundled XPrinter SDK |
+|---|---|
+| **iOS** | XPrinter PrinterSDK **v2.3.0** (`libPrinterSDK.a` + `Headers/`) |
+| **Android** | XPrinter `printer-lib-3.2.0.aar` |
+| **Windows 10+** | XPrinter ESC/POS Windows SDK **v2.0.4** (`printer.sdk.dll`) |
 
 Tested on XP-58IIT (58 mm BLE) and XP-C260M (80 mm BLE / USB / Ethernet).
 
@@ -38,51 +45,10 @@ dependencies:
 flutter pub get
 ```
 
-### 2. Download the XPrinter SDK
+### 2. Install platform dependencies
 
-XPrinter's licence is silent on redistribution, so this package does **not** ship the vendor binaries. Download them yourself from:
-
-**<https://www.xprintertech.com/sdk.html>**
-
-Two zips (or unzipped folders):
-
-| Platform | Files you'll need from the zip |
-|---|---|
-| **iOS** | `libPrinterSDK.a` + the `Headers/` folder (~10 `.h` files: `POSPrinter.h`, `POSCommand.h`, `POSBLEManager.h`, `POSWIFIManager.h`, etc.) |
-| **Android** | `printer-lib-3.2.0.aar` (or compatible v3.x release) |
-
-### 3. Run the setup script
-
-From your Flutter project root:
-
-```bash
-dart run flutter_xprinter_sdk:setup \
-    --ios=~/Downloads/iOS-SDK-3.2.0 \
-    --android=~/Downloads/Android-SDK-3.2.0
-```
-
-`--ios` and `--android` accept either an unzipped folder or a `.zip` file directly. Use `--auto` to scan `~/Downloads` for them.
-
-The script copies the binaries into your app and patches `android/app/build.gradle(.kts)`:
-
-```
-your_flutter_app/
-├── ios/
-│   └── Frameworks/                 ← script puts iOS files here
-│       ├── libPrinterSDK.a
-│       └── Headers/
-│           ├── POSPrinter.h
-│           └── … other .h files
-└── android/
-    └── app/
-        ├── libs/                   ← script puts the AAR here
-        │   └── printer-lib-3.2.0.aar
-        └── build.gradle(.kts)      ← script adds `implementation fileTree(libs, *.aar)`
-```
-
-These files live in **your repo** — committed alongside your source, available on every clone, survives `flutter clean`. **No pub-cache editing.**
-
-### 4. Final wiring
+The iOS static library and headers, Android AAR, and Windows DLL are bundled
+with the plugin and linked into the host application automatically.
 
 ```bash
 cd ios && pod install && cd ..
@@ -91,11 +57,17 @@ flutter clean && flutter run
 
 That's it.
 
-> **Don't want to run the script?** Do steps 3-4 manually — copy the files to those exact paths, and add `implementation fileTree(dir: 'libs', include: ['*.aar'])` (or the Kotlin DSL equivalent) to `android/app/build.gradle(.kts)`'s `dependencies { … }` block.
+If you install from pub.dev, there is no separate XPrinter download or vendor
+setup step.
 
-### 5. Permissions
+### 3. Permissions
 
-**Android.** The plugin's `AndroidManifest.xml` already declares the Bluetooth + USB + Internet permissions. **However**, on Android 12+ (API 31+) you must request `BLUETOOTH_SCAN` and `BLUETOOTH_CONNECT` at runtime before calling any of the scan/connect methods. The example app uses [`permission_handler`](https://pub.dev/packages/permission_handler):
+**Android.** The plugin's `AndroidManifest.xml` already declares the Bluetooth,
+USB, and Internet permissions. **However**, on Android 12+ (API 31+) you must
+request `BLUETOOTH_SCAN` and `BLUETOOTH_CONNECT` at runtime before calling any
+scan/connect method. On Android 11 and older, Bluetooth discovery results also
+require runtime location permission. The example app uses
+[`permission_handler`](https://pub.dev/packages/permission_handler):
 
 ```dart
 import 'package:permission_handler/permission_handler.dart';
@@ -104,6 +76,7 @@ await [
   Permission.bluetoothScan,
   Permission.bluetoothConnect,
 ].request();
+await Permission.locationWhenInUse.request(); // Android <= 11 discovery
 ```
 
 **iOS.** Add to your app's `Info.plist`:
@@ -114,6 +87,11 @@ await [
 <key>NSBluetoothPeripheralUsageDescription</key>
 <string>Used to connect to thermal receipt printers.</string>
 ```
+
+**Windows.** The vendor SDK supports USB, TCP/IP, and serial ports. This
+plugin currently exposes USB and TCP through the existing connection API.
+Direct Bluetooth discovery and MAC-address connections are not available on
+Windows.
 
 ## Quick start
 
@@ -271,13 +249,21 @@ The image had transparent pixels and the SDK rendered them as black. `XprinterIm
 Pass `mode: XprinterImageMode.threshold` to force the hard-threshold path. Auto-detection can misclassify small upscaled icons as photo-like.
 
 **`net.posprinter.*` not found at link time on Android.**
-The vendor AAR isn't on the classpath. Either copy it to `<pub-cache>/.../android/libs/`, or vendor it in your app's `android/app/libs/` and add `implementation fileTree(...)` to your `app/build.gradle`.
+Make sure the plugin package contains
+`android/libs/printer-lib-3.2.0.aar`, then run `flutter clean` and rebuild.
+
+**Windows build says `printer.sdk.dll` was not found.**
+Make sure the plugin package contains
+`windows/xprinter_sdk/x64/printer.sdk.dll`, then run `flutter clean` and
+rebuild the application.
 
 ## Licence
 
 This wrapper is MIT-licensed (see [LICENSE](LICENSE)).
 
-The bundled XPrinter SDKs are NOT included in this distribution. Obtain them from <https://www.xprintertech.com/sdk.html> and review XPrinter Co., Ltd.'s licence terms before shipping in your app.
+The iOS, Android, and Windows SDK binaries are included in this distribution.
+Review XPrinter Co., Ltd.'s licence terms before shipping the vendor binaries
+in your app.
 
 ## Contributing
 

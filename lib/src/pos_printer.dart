@@ -7,6 +7,7 @@ import 'package:flutter_xprinter_sdk/src/printer_status.dart';
 import 'package:flutter_xprinter_sdk/src/qr_correction.dart';
 import 'package:flutter_xprinter_sdk/src/text_attribute.dart';
 import 'package:flutter_xprinter_sdk/src/xprinter_exception.dart';
+import 'package:image/image.dart' as img;
 
 /// Receipt-relevant subset of the XPrinter `POSPrinter` API.
 ///
@@ -40,19 +41,29 @@ abstract final class PosPrinter {
     });
   }
 
-  /// Prints a raster bitmap.  [bytes] must be a PNG / JPEG / BMP byte
-  /// buffer that Android's `BitmapFactory.decodeByteArray` can decode.
+  /// Prints a raster bitmap. [bytes] must be a PNG / JPEG / BMP / GIF image.
   ///
   /// [widthDots] is the target print width in dots — the SDK scales the
-  /// source bitmap to this width preserving aspect ratio.  Default 384 is
-  /// the full 58 mm print head; pass 576 for 80 mm.
+  /// source bitmap to this width preserving aspect ratio. Default 384 is the
+  /// full 58 mm print head; pass 576 for 80 mm. The Dart layer performs the
+  /// resize before dispatch so this behaves consistently on every platform.
   static Future<void> printBitmap(
     Uint8List bytes, {
     XprinterAlignment alignment = XprinterAlignment.center,
     int widthDots = 384,
   }) {
+    var preparedBytes = bytes;
+    final decoded = img.decodeImage(bytes);
+    if (decoded != null && widthDots > 0 && decoded.width != widthDots) {
+      final resized = img.copyResize(
+        decoded,
+        width: widthDots,
+        interpolation: img.Interpolation.linear,
+      );
+      preparedBytes = Uint8List.fromList(img.encodePng(resized));
+    }
     return _invoke('printBitmap', <String, Object?>{
-      'bytes': bytes,
+      'bytes': preparedBytes,
       'alignment': alignment.nativeValue,
       'widthDots': widthDots,
     });

@@ -22,7 +22,8 @@ SOFTWARE.
 
 ---
 
-This package wraps the XPrinter SDK (libPrinterSDK.a / printer-lib.aar).
-Those vendor binaries are NOT included in this distribution and are subject
-to XPrinter Co., Ltd.'s own licence terms — obtain them from
-https://www.xprintertech.com/sdk.html and review their licence before use.
+This package wraps the XPrinter SDK binaries that are bundled in the
+distribution (`libPrinterSDK.a`, `printer-lib-3.2.0.aar`, and
+`printer.sdk.dll`). Those vendor binaries remain subject to XPrinter Co.,
+Ltd.'s own licence terms. Review their terms before shipping this package or
+any app that includes it.

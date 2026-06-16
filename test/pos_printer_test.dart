@@ -1,12 +1,14 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_xprinter_sdk/flutter_xprinter_sdk.dart';
+import 'package:image/image.dart' as img;
 
 const _channel = MethodChannel('dev.lazizbekfayziev.flutter_xprinter_sdk');
 
 /// Shorthand for the test binding's binary messenger — keeps lines under
 // ignore: lines_longer_than_80_chars
-TestDefaultBinaryMessengerBinding get _binding => TestDefaultBinaryMessengerBinding.instance;
+TestDefaultBinaryMessengerBinding get _binding =>
+    TestDefaultBinaryMessengerBinding.instance;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -79,6 +81,19 @@ void main() {
       expect(args['bytes'], bytes);
       expect(args['alignment'], 1);
       expect(args['widthDots'], 384);
+    });
+
+    test('resizes decoded images to widthDots before dispatch', () async {
+      final source = img.Image(width: 2, height: 1)..setPixelRgb(0, 0, 0, 0, 0);
+      final bytes = Uint8List.fromList(img.encodePng(source));
+
+      await PosPrinter.printBitmap(bytes, widthDots: 4);
+
+      final args = calls.single.arguments as Map<Object?, Object?>;
+      final dispatched = img.decodeImage(args['bytes']! as Uint8List);
+      expect(dispatched, isNotNull);
+      expect(dispatched!.width, 4);
+      expect(dispatched.height, 2);
     });
   });
 

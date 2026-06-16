@@ -1,17 +1,64 @@
-# flutter_xprinter_sdk_example
+# flutter_xprinter_sdk example
 
-A new Flutter project.
+The example prints the same full receipt on:
 
-## Getting Started
+- Android/iOS using Bluetooth discovery.
+- Windows 10+ using USB or TCP/IP.
 
-This project is a starting point for a Flutter application.
+## Windows setup
 
-A few resources to get you started if this is your first Flutter project:
+The plugin bundles the vendor x64 `printer.sdk.dll` from XPrinter Windows SDK
+v2.0.4, so no separate Windows SDK installation is required. Run:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter run -d windows
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+The example UI lets you choose USB or TCP/IP.
+
+## Minimal Windows code
+
+USB, first connected XPrinter:
+
+```dart
+await XprinterConnection.connect(
+  type: XprinterConnectionType.usb,
+  address: '',
+);
+```
+
+USB by model or port number:
+
+```dart
+await XprinterConnection.connect(
+  type: XprinterConnectionType.usb,
+  address: 'USB031', // Or a model such as 4B-2054A.
+);
+```
+
+TCP/IP:
+
+```dart
+await XprinterConnection.connect(
+  type: XprinterConnectionType.tcp,
+  address: '192.168.1.100:9100',
+);
+```
+
+Print and disconnect:
+
+```dart
+await PosPrinter.initialize();
+await PosPrinter.printText(
+  'Hello from Windows',
+  alignment: XprinterAlignment.center,
+  attribute: XprinterTextAttribute.bold,
+);
+await PosPrinter.printQRCode('https://example.com');
+await PosPrinter.feedLine(3);
+await PosPrinter.cutPaper();
+await XprinterConnection.disconnect();
+```
+
+The XPrinter Windows SDK does not provide direct Bluetooth discovery or
+MAC-address connections.

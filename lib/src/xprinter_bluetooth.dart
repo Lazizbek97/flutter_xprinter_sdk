@@ -39,11 +39,15 @@ class XprinterBluetoothDevice {
 }
 
 /// Bluetooth scanner + bonded-list helpers backed by the platform
-/// `BluetoothAdapter` APIs (Android only).
+/// native Bluetooth APIs on Android and iOS.
 ///
 /// The XPrinter SDK itself doesn't expose Bluetooth discovery — it
 /// expects you to hand it a MAC.  This class fills that gap so the app
 /// only needs one Bluetooth dependency for printers.
+///
+/// The vendor Windows SDK does not expose Bluetooth discovery, so Windows
+/// returns an empty bonded-device list and [startDiscovery] emits an
+/// `unsupported_transport` error.
 ///
 /// **Permissions:**
 /// - Android 12+ (API 31+): `BLUETOOTH_CONNECT` and `BLUETOOTH_SCAN`
@@ -51,7 +55,8 @@ class XprinterBluetoothDevice {
 /// - Pre-Android-12 (API < 31): `ACCESS_FINE_LOCATION` is required by the
 ///   OS to receive discovery results.
 abstract final class XprinterBluetooth {
-  static const EventChannel _discoveryChannel = EventChannel('dev.lazizbekfayziev.flutter_xprinter_sdk/discovery');
+  static const EventChannel _discoveryChannel =
+      EventChannel('dev.lazizbekfayziev.flutter_xprinter_sdk/discovery');
 
   /// Returns every Bluetooth device the OS already remembers as bonded —
   /// i.e. paired in the system Bluetooth settings.
@@ -66,7 +71,8 @@ abstract final class XprinterBluetooth {
   static Future<List<XprinterBluetoothDevice>> getBondedDevices() async {
     try {
       // ignore: lines_longer_than_80_chars
-      final raw = await xprinterMethodChannel.invokeListMethod<Map<dynamic, dynamic>>(
+      final raw =
+          await xprinterMethodChannel.invokeListMethod<Map<dynamic, dynamic>>(
         'getBondedDevices',
       );
       if (raw == null) return const [];
@@ -92,10 +98,28 @@ abstract final class XprinterBluetooth {
     final controller = StreamController<XprinterBluetoothDevice>();
     StreamSubscription<dynamic>? sub;
     Timer? timer;
+    var closing = false;
 
-    void closeAll([Object? error, StackTrace? stack]) {
+    Future<void> cancelPlatformStream() {
+      final activeSub = sub;
+      sub = null;
+      return activeSub?.cancel() ?? Future<void>.value();
+    }
+
+    void closeAll({
+      Object? error,
+      StackTrace? stack,
+      bool cancelPlatformSubscription = true,
+    }) {
+      if (closing) return;
+      closing = true;
       timer?.cancel();
-      sub?.cancel();
+      timer = null;
+      if (cancelPlatformSubscription) {
+        unawaited(cancelPlatformStream());
+      } else {
+        sub = null;
+      }
       if (error != null && !controller.isClosed) {
         controller.addError(error, stack);
       }
@@ -117,10 +141,11 @@ abstract final class XprinterBluetooth {
                     e.message ?? 'unknown',
                   )
                 : e;
-            closeAll(mapped, st);
+            closeAll(error: mapped, stack: st);
           },
-          onDone: closeAll,
-          cancelOnError: true,
+          onDone: () {
+            closeAll(cancelPlatformSubscription: false);
+          },
         );
         if (timeout != null) {
           timer = Timer(timeout, closeAll);
@@ -128,8 +153,8 @@ abstract final class XprinterBluetooth {
       }
       ..onCancel = () {
         timer?.cancel();
-        sub?.cancel();
-        sub = null;
+        timer = null;
+        return cancelPlatformStream();
       };
 
     return controller.stream;

@@ -1,13 +1,3 @@
-# Vendor binaries — users download these from xprintertech.com/sdk.html themselves.
-# Keeping them out of the published archive avoids redistributing
-# proprietary code we don't have a licence to ship.
-ios/Frameworks/libPrinterSDK.a
-ios/Frameworks/Headers/
-android/libs/printer-lib-*.aar
-example/ios/Frameworks/libPrinterSDK.a
-example/ios/Frameworks/Headers/
-example/android/app/libs/printer-lib-*.aar
-
 # Build artefacts.
 .dart_tool/
 .flutter-plugins
