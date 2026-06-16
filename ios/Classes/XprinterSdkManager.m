@@ -851,8 +851,9 @@ static FlutterError *_kSimError(void) {
 - (void)getStatus:(FlutterResult)result                                    { result(@0); }
 - (void)sendRawCommand:(NSDictionary *)args result:(FlutterResult)result   { result(_kSimError()); }
 
-// FlutterStreamHandler — discovery EventChannel always emits "no devices" on simulator.
+// FlutterStreamHandler — simulator cannot use the vendor BLE scanner.
 - (FlutterError *)onListenWithArguments:(id)arguments eventSink:(FlutterEventSink)events {
+    events(_kSimError());
     return nil;
 }
 - (FlutterError *)onCancelWithArguments:(id)arguments {

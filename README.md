@@ -53,7 +53,12 @@ That's it.
 
 ### 3. Permissions
 
-**Android.** The plugin's `AndroidManifest.xml` already declares the Bluetooth + USB + Internet permissions. **However**, on Android 12+ (API 31+) you must request `BLUETOOTH_SCAN` and `BLUETOOTH_CONNECT` at runtime before calling any of the scan/connect methods. The example app uses [`permission_handler`](https://pub.dev/packages/permission_handler):
+**Android.** The plugin's `AndroidManifest.xml` already declares the Bluetooth,
+USB, and Internet permissions. **However**, on Android 12+ (API 31+) you must
+request `BLUETOOTH_SCAN` and `BLUETOOTH_CONNECT` at runtime before calling any
+scan/connect method. On Android 11 and older, Bluetooth discovery results also
+require runtime location permission. The example app uses
+[`permission_handler`](https://pub.dev/packages/permission_handler):
 
 ```dart
 import 'package:permission_handler/permission_handler.dart';
@@ -62,6 +67,7 @@ await [
   Permission.bluetoothScan,
   Permission.bluetoothConnect,
 ].request();
+await Permission.locationWhenInUse.request(); // Android <= 11 discovery
 ```
 
 **iOS.** Add to your app's `Info.plist`:

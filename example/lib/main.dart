@@ -47,9 +47,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// Combines `getBondedDevices` (Android Classic-BT paired devices —
-  /// returns nothing on iOS) with a 5-second `startDiscovery` BLE scan
-  /// (works on both platforms; triggers the iOS Core Bluetooth permission
-  /// prompt the first time).  Devices are deduped by Bluetooth address.
+  /// returns nothing on iOS) with a 12-second active scan. Android uses
+  /// classic Bluetooth inquiry; iOS uses Core Bluetooth BLE scanning.
+  /// Devices are deduped by Bluetooth address.
   Future<void> _scan() async {
     setState(() {
       _scanning = true;
@@ -57,7 +57,7 @@ class _HomePageState extends State<HomePage> {
     });
     try {
       if (!await _requestBluetoothPermissions()) {
-        setState(() => _status = 'Bluetooth permission denied');
+        setState(() => _status = 'Bluetooth scan permission denied');
         return;
       }
 
@@ -71,11 +71,11 @@ class _HomePageState extends State<HomePage> {
         }
       } catch (_) {/* ignore — bonded list isn't supported on iOS */}
 
-      // 2. Active BLE scan — finds new devices and triggers the iOS
-      //    Core Bluetooth permission prompt.
+      // 2. Active scan — finds nearby devices. iOS uses Core Bluetooth
+      //    BLE scanning, Android uses classic Bluetooth inquiry.
       setState(() => _status = 'Scanning for nearby devices…');
-      final stream =
-          XprinterBluetooth.startDiscovery(timeout: const Duration(seconds: 5));
+      final stream = XprinterBluetooth.startDiscovery(
+          timeout: const Duration(seconds: 12));
       await for (final d in stream) {
         byAddress[d.address] = d;
         setState(() {
@@ -87,7 +87,9 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _devices = byAddress.values.toList();
         _selected ??= _devices.isNotEmpty ? _devices.first : null;
-        _status = 'Found ${_devices.length} device(s)';
+        _status = _devices.isEmpty
+            ? 'Found 0 devices. Make sure the printer is powered on; on Android, pair Classic Bluetooth printers in system Settings first.'
+            : 'Found ${_devices.length} device(s)';
       });
     } catch (e) {
       setState(() => _status = 'Scan failed: $e');
@@ -96,16 +98,22 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Requests the runtime permissions Android 12+ needs for Bluetooth.
+  /// Requests runtime permissions needed for Bluetooth discovery.
   /// iOS handles this through `Info.plist` so this is a no-op there.
   Future<bool> _requestBluetoothPermissions() async {
     if (!Platform.isAndroid) return true;
-    // return false;
-    final results = await [
+
+    final bluetoothResults = await [
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
     ].request();
-    return results.values.every((s) => s.isGranted);
+
+    // Android 11 and older require location permission for Bluetooth inquiry
+    // results. Android 12+ does not need it here because BLUETOOTH_SCAN is
+    // declared with neverForLocation, so we ask but do not block on it.
+    await Permission.locationWhenInUse.request();
+
+    return bluetoothResults.values.every((s) => s.isGranted);
   }
 
   Future<void> _printDemoReceipt() async {
