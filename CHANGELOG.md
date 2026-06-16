@@ -2,6 +2,10 @@
 
 ## 0.2.0
 
+### Changed
+- The plugin now bundles the XPrinter native SDKs and performs initialization
+  without a manual download/setup step in consuming apps.
+
 ### Added
 - **Windows 10+** support through XPrinter's ESC/POS Windows SDK 2.0.4.
 - USB and TCP/IP connections on Windows.

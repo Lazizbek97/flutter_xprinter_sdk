@@ -38,7 +38,7 @@ Most ESC/POS Flutter packages target Latin text on a single paper width. This on
 
 ```yaml
 dependencies:
-  flutter_xprinter_sdk: ^0.1.0
+  flutter_xprinter_sdk: ^0.2.0
 ```
 
 ```bash

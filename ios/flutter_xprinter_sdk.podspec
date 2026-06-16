@@ -8,7 +8,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_xprinter_sdk'
-  s.version          = '0.1.0'
+  s.version          = '0.2.0'
   s.summary          = 'Flutter plugin for XPrinter thermal receipt printers.'
   s.description      = <<-DESC
     Bluetooth / USB / TCP connectivity and ESC/POS printing for XPrinter
