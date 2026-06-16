@@ -70,5 +70,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Used to connect to thermal receipt printers.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Used to connect to thermal receipt printers.</string>
 </dict>
 </plist>
