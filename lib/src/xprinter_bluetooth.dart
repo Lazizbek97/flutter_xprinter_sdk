@@ -98,10 +98,28 @@ abstract final class XprinterBluetooth {
     final controller = StreamController<XprinterBluetoothDevice>();
     StreamSubscription<dynamic>? sub;
     Timer? timer;
+    var closing = false;
 
-    void closeAll([Object? error, StackTrace? stack]) {
+    Future<void> cancelPlatformStream() {
+      final activeSub = sub;
+      sub = null;
+      return activeSub?.cancel() ?? Future<void>.value();
+    }
+
+    void closeAll({
+      Object? error,
+      StackTrace? stack,
+      bool cancelPlatformSubscription = true,
+    }) {
+      if (closing) return;
+      closing = true;
       timer?.cancel();
-      sub?.cancel();
+      timer = null;
+      if (cancelPlatformSubscription) {
+        unawaited(cancelPlatformStream());
+      } else {
+        sub = null;
+      }
       if (error != null && !controller.isClosed) {
         controller.addError(error, stack);
       }
@@ -123,10 +141,11 @@ abstract final class XprinterBluetooth {
                     e.message ?? 'unknown',
                   )
                 : e;
-            closeAll(mapped, st);
+            closeAll(error: mapped, stack: st);
           },
-          onDone: closeAll,
-          cancelOnError: true,
+          onDone: () {
+            closeAll(cancelPlatformSubscription: false);
+          },
         );
         if (timeout != null) {
           timer = Timer(timeout, closeAll);
@@ -134,8 +153,8 @@ abstract final class XprinterBluetooth {
       }
       ..onCancel = () {
         timer?.cancel();
-        sub?.cancel();
-        sub = null;
+        timer = null;
+        return cancelPlatformStream();
       };
 
     return controller.stream;

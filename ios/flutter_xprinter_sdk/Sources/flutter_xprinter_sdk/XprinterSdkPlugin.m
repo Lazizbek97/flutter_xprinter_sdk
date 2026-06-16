@@ -1,4 +1,4 @@
-#import "XprinterSdkPlugin.h"
+#import "./include/flutter_xprinter_sdk/XprinterSdkPlugin.h"
 #import "XprinterSdkManager.h"
 
 static NSString *const kMethodChannel = @"dev.lazizbekfayziev.flutter_xprinter_sdk";

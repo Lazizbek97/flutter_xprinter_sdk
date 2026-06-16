@@ -19,9 +19,9 @@ Pod::Spec.new do |s|
   s.author           = { 'Lazizbek Fayziev' => 'lazizbekfayziyev@gmail.com' }
   s.source           = { :path => '.' }
 
-  s.source_files     = 'Classes/**/*.{h,m}'
-  s.public_header_files = 'Classes/**/*.h'
-  s.preserve_paths   = 'Frameworks/**/*'
+  s.source_files     = 'flutter_xprinter_sdk/Sources/flutter_xprinter_sdk/**/*.{h,m}'
+  s.public_header_files = 'flutter_xprinter_sdk/Sources/flutter_xprinter_sdk/include/**/*.h'
+  s.preserve_paths   = 'flutter_xprinter_sdk/Frameworks/**/*'
 
   s.platform         = :ios, '12.0'
   s.dependency 'Flutter'
@@ -30,8 +30,8 @@ Pod::Spec.new do |s|
   # source files are guarded with `#if !TARGET_OS_SIMULATOR`, so the plugin
   # compiles cleanly on simulator without referencing SDK symbols.
   s.pod_target_xcconfig = {
-    'HEADER_SEARCH_PATHS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/Frameworks/Headers"',
-    'LIBRARY_SEARCH_PATHS[sdk=iphoneos*]' => '$(inherited) "$(PODS_TARGET_SRCROOT)/Frameworks"',
+    'HEADER_SEARCH_PATHS' => '$(inherited) "$(PODS_TARGET_SRCROOT)/flutter_xprinter_sdk/Frameworks/Headers"',
+    'LIBRARY_SEARCH_PATHS[sdk=iphoneos*]' => '$(inherited) "$(PODS_TARGET_SRCROOT)/flutter_xprinter_sdk/Frameworks"',
     'OTHER_LDFLAGS' => '$(inherited) -ObjC',
     'OTHER_LDFLAGS[sdk=iphoneos*]' => '$(inherited) -ObjC -lPrinterSDK',
     'DEFINES_MODULE' => 'YES',
