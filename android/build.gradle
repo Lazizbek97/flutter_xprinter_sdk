@@ -48,12 +48,6 @@ android {
         minSdkVersion 21
     }
 
-    // The XPrinter AAR contains native .so libs in arm64-v8a / armeabi-v7a / x86 / x86_64.
-    packagingOptions {
-        jniLibs {
-            useLegacyPackaging = true
-        }
-    }
 }
 
 dependencies {

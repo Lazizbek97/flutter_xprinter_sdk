@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.1
+
+### Fixed
+- Android release artifacts now support 16 KB memory page sizes. The bundled
+  vendor AAR no longer includes its 4 KB-aligned serial-port JNI binaries;
+  serial transport is not exposed by this plugin, while Bluetooth, USB, and
+  TCP/IP transports are unchanged.
+- USB host hardware is explicitly optional, overriding the vendor AAR's
+  mandatory declaration so Bluetooth/TCP-only devices remain supported.
+
 ## 0.2.0
 
 ### Changed
