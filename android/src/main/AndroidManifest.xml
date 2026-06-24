@@ -25,6 +25,11 @@
 
     <!-- Optional features — printer hardware varies per merchant. -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
-    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <!-- Override the vendor AAR, which incorrectly makes USB host mandatory.
+         Bluetooth and TCP printing do not require USB host hardware. -->
+    <uses-feature
+        android:name="android.hardware.usb.host"
+        android:required="false"
+        tools:replace="android:required" />
 
 </manifest>
