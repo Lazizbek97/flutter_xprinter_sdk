@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+### Fixed
+- Cyrillic text printed through `XprinterLayout` now stays in CP866 mode after
+  barcode output, preventing the next receipt line from rendering as Chinese
+  characters.
+
 ## 0.2.1
 
 ### Fixed

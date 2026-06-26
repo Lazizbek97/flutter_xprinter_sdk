@@ -1,6 +1,6 @@
 name: flutter_xprinter_sdk
 description: Flutter plugin for XPrinter thermal receipt printers. Cyrillic-safe text, Floyd-Steinberg image dithering, BLE / Classic Bluetooth / USB / TCP transports.
-version: 0.2.1
+version: 0.2.2
 homepage: https://github.com/Lazizbek97/flutter_xprinter_sdk
 repository: https://github.com/Lazizbek97/flutter_xprinter_sdk
 issue_tracker: https://github.com/Lazizbek97/flutter_xprinter_sdk/issues

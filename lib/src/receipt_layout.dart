@@ -45,6 +45,9 @@ abstract final class XprinterLayout {
   static const List<int> _boldOff = <int>[0x1B, 0x45, 0x00]; // ESC E 0
   static const int _lf = 0x0A;
 
+  /// FS . + ESC t 17: leave Chinese mode and select CP866 before raw text.
+  static const List<int> _cp866TextMode = <int>[0x1C, 0x2E, 0x1B, 0x74, 0x11];
+
   /// ESC a 0 — reset alignment to LEFT.  Prefixed to raw-byte rows
   /// because `printBitmap` leaves the printer in CENTER alignment.
   static const List<int> _alignLeft = <int>[0x1B, 0x61, 0x00];
@@ -87,6 +90,7 @@ abstract final class XprinterLayout {
       XprinterAlignment.right => const <int>[0x1B, 0x61, 0x02],
     };
     final bytes = <int>[
+      ..._cp866TextMode,
       ...alignBytes,
       if (bold) ..._boldOn,
       ...encodeToCp866(text),
@@ -100,6 +104,7 @@ abstract final class XprinterLayout {
   /// Bold `Label:` + plain value.  Empty value → label only.
   static Future<void> printInfoRow(String label, String value) async {
     final bytes = <int>[
+      ..._cp866TextMode,
       ..._alignLeft,
       ..._boldOn,
       ...encodeToCp866('$label:'),
@@ -127,6 +132,7 @@ abstract final class XprinterLayout {
       final padCount = _charsPerLine - label.length - value.length;
       if (padCount >= 1) {
         final bytes = <int>[
+          ..._cp866TextMode,
           ..._alignLeft,
           ...encodeToCp866('$label${' ' * padCount}'),
           ..._boldOn,
@@ -145,6 +151,7 @@ abstract final class XprinterLayout {
         final fill = leader.substring(0, 1) * fillCount;
         final left = '$label $fill ';
         final bytes = <int>[
+          ..._cp866TextMode,
           ..._alignLeft,
           ...encodeToCp866(left),
           ..._boldOn,
@@ -162,6 +169,7 @@ abstract final class XprinterLayout {
     await printLine(label);
     for (final chunk in _rightAlignChunks(value)) {
       final bytes = <int>[
+        ..._cp866TextMode,
         ..._alignLeft,
         ..._boldOn,
         ...encodeToCp866(chunk),
@@ -182,6 +190,7 @@ abstract final class XprinterLayout {
     if (fillCount >= minDots) {
       final leader = '.' * fillCount;
       final bytes = <int>[
+        ..._cp866TextMode,
         ..._alignLeft,
         ..._boldOn,
         ...encodeToCp866(label),
