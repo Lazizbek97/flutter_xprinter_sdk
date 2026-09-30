@@ -38,5 +38,6 @@
 - (void)setAlignment:(NSDictionary *)args result:(FlutterResult)result;
 - (void)getStatus:(FlutterResult)result;
 - (void)sendRawCommand:(NSDictionary *)args result:(FlutterResult)result;
+- (void)printLabel:(NSDictionary *)args result:(FlutterResult)result;
 
 @end

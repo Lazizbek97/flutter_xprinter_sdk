@@ -14,6 +14,7 @@
 #import "POSCommand.h"
 #import "POSImageTranster.h"
 #import "POSWIFIManager.h"
+#import "TSCBLEManager.h"
 
 // MARK: - Connection state -------------------------------------------------
 
@@ -28,6 +29,7 @@ typedef NS_ENUM(NSInteger, XprinterTransport) {
 // printer two advertising windows on slow links plus some grace for the
 // CBCentralManager to power up if this is a cold start.
 static const NSTimeInterval kConnectScanTimeout = 12.0;
+static const NSTimeInterval kBleWriteTimeout = 10.0;
 
 // All NSLog from the manager goes through this so the user can grep
 // Console.app for `[XprinterSdk]` and see exactly what happened.
@@ -38,10 +40,11 @@ static const int kDefaultBarcodeHeight = 162;
 
 // MARK: - Manager ----------------------------------------------------------
 
-@interface XprinterSdkManager () <POSBLEManagerDelegate, POSWIFIManagerDelegate>
+@interface XprinterSdkManager () <POSBLEManagerDelegate, POSWIFIManagerDelegate, TSCBLEManagerDelegate>
 
 // Active transport (BT / TCP / none).
 @property (nonatomic, assign) XprinterTransport currentTransport;
+@property (nonatomic, assign) BOOL labelMode;
 
 // Discovery EventChannel sink — non-nil while a Dart listener is attached.
 @property (nonatomic, copy, nullable) FlutterEventSink discoverySink;
@@ -77,6 +80,7 @@ static const int kDefaultBarcodeHeight = 162;
 // triggering call's FlutterResult when the SDK's write callback fires
 // (or on disconnect, with a CONNECTION_LOST error).
 @property (nonatomic, copy, nullable) FlutterResult pendingFlushResult;
+@property (nonatomic, assign) NSUInteger writeGeneration;
 
 @end
 
@@ -104,6 +108,11 @@ static const int kDefaultBarcodeHeight = 162;
     if (m.delegate != self) m.delegate = self;
 }
 
+- (void)_attachTscBleDelegateIfNeeded {
+    TSCBLEManager *m = [TSCBLEManager sharedInstance];
+    if (m.delegate != self) m.delegate = self;
+}
+
 - (void)_attachWifiDelegateIfNeeded {
     POSWIFIManager *m = [POSWIFIManager sharedInstance];
     if (m.delegate != self) m.delegate = self;
@@ -126,6 +135,7 @@ static const int kDefaultBarcodeHeight = 162;
     // active connection at a time, but the user may have killed the
     // app last time without disconnecting cleanly.
     [self _teardownExistingConnectionsForReconnect];
+    self.labelMode = [args[@"labelMode"] boolValue];
 
     if ([type isEqualToString:@"tcp"]) {
         [self _connectTcp:address result:result];
@@ -173,10 +183,14 @@ static const int kDefaultBarcodeHeight = 162;
     if ([[POSBLEManager sharedInstance] printerIsConnect]) {
         [[POSBLEManager sharedInstance] disconnectRootPeripheral];
     }
+    if ([TSCBLEManager sharedInstance].writePeripheral.state == CBPeripheralStateConnected) {
+        [[TSCBLEManager sharedInstance] disconnectRootPeripheral];
+    }
     if ([[POSWIFIManager sharedInstance] printerIsConnect]) {
         [[POSWIFIManager sharedInstance] disconnect];
     }
     self.currentTransport = XprinterTransportNone;
+    self.labelMode = NO;
     // Discard any leftover BLE buffer from a previous connection — its
     // bytes belong to a now-defunct printer and would corrupt the next
     // receipt if accidentally flushed later.
@@ -207,6 +221,17 @@ static const int kDefaultBarcodeHeight = 162;
 }
 
 - (void)_connectBluetooth:(NSString *)uuidString result:(FlutterResult)result {
+    if (self.labelMode) {
+        [self _attachTscBleDelegateIfNeeded];
+        self.pendingConnectAddress = uuidString.lowercaseString;
+        self.pendingConnectResult = result;
+        self.currentTransport = XprinterTransportBluetooth;
+        self.pendingConnectScanArmed = YES;
+        XLog(@"TSPL BLE scan for %@", uuidString);
+        [[TSCBLEManager sharedInstance] startScan];
+        [self _armConnectTimeout];
+        return;
+    }
     [self _attachBleDelegateIfNeeded];
     NSString *key = uuidString.lowercaseString;
     CBPeripheral *cached = self.peripheralCache[key];
@@ -256,7 +281,11 @@ static const int kDefaultBarcodeHeight = 162;
 
         XLog(@"connect timeout fired — no peripheral matched after %.0fs",
              kConnectScanTimeout);
-        [[POSBLEManager sharedInstance] stopScan];
+        if (self.labelMode) {
+            [[TSCBLEManager sharedInstance] stopScan];
+        } else {
+            [[POSBLEManager sharedInstance] stopScan];
+        }
         FlutterResult pending = self.pendingConnectResult;
         self.pendingConnectAddress = nil;
         self.pendingConnectResult = nil;
@@ -269,6 +298,13 @@ static const int kDefaultBarcodeHeight = 162;
 }
 
 - (void)disconnect:(FlutterResult)result {
+    if (self.currentTransport == XprinterTransportBluetooth && self.labelMode) {
+        [[TSCBLEManager sharedInstance] disconnectRootPeripheral];
+        self.currentTransport = XprinterTransportNone;
+        self.labelMode = NO;
+        result(nil);
+        return;
+    }
     // BLE: if there are unflushed bytes (Dart didn't call cutPaper, or
     // hit an error mid-receipt), flush them first so they don't get
     // dropped when we tear down the connection.  Flush errors are
@@ -305,7 +341,9 @@ static const int kDefaultBarcodeHeight = 162;
 - (void)isConnected:(FlutterResult)result {
     BOOL connected = NO;
     if (self.currentTransport == XprinterTransportBluetooth) {
-        connected = [[POSBLEManager sharedInstance] printerIsConnect];
+        connected = self.labelMode
+            ? [TSCBLEManager sharedInstance].writePeripheral.state == CBPeripheralStateConnected
+            : [[POSBLEManager sharedInstance] printerIsConnect];
     } else if (self.currentTransport == XprinterTransportTcp) {
         connected = [[POSWIFIManager sharedInstance] printerIsConnect];
     }
@@ -373,7 +411,7 @@ static const int kDefaultBarcodeHeight = 162;
         // (BLE connect succeeds but writes silently never deliver).
         // Clear `pendingConnectAddress` and stop the scan immediately so
         // a second callback can't re-trigger.
-        if (self.pendingConnectAddress &&
+        if (!self.labelMode && self.pendingConnectAddress &&
             [uuid isEqualToString:self.pendingConnectAddress]) {
             XLog(@"pending connect matched — calling connectDevice: (deduped)");
             self.pendingConnectAddress = nil;
@@ -385,21 +423,45 @@ static const int kDefaultBarcodeHeight = 162;
 }
 
 - (void)POSbleConnectPeripheral:(CBPeripheral *)peripheral {
+    if (self.labelMode) return;
     XLog(@"connect succeeded for %@", peripheral.identifier.UUIDString);
     [[POSBLEManager sharedInstance] stopScan];
     self.pendingConnectScanArmed = NO;
     // Fresh buffer for this connection — every receipt printed during
     // this BT session will accumulate here until cutPaper / disconnect.
     self.pendingBleBuffer = [NSMutableData data];
-    if (self.pendingConnectResult) {
+    [self _finishPosConnectWhenReady:30];
+}
+
+- (void)_finishPosConnectWhenReady:(NSInteger)attemptsRemaining {
+    if (self.labelMode || !self.pendingConnectResult) return;
+    POSBLEManager *manager = [POSBLEManager sharedInstance];
+    if (manager.printerIsConnect && manager.write_characteristic) {
         FlutterResult pending = self.pendingConnectResult;
         self.pendingConnectAddress = nil;
         self.pendingConnectResult = nil;
         pending(nil);
+        return;
     }
+    if (attemptsRemaining == 0) {
+        FlutterResult pending = self.pendingConnectResult;
+        self.pendingConnectResult = nil;
+        self.currentTransport = XprinterTransportNone;
+        [manager disconnectRootPeripheral];
+        pending([FlutterError errorWithCode:@"CONNECT_FAIL"
+                                    message:@"POS BLE write characteristic was not discovered"
+                                    details:nil]);
+        return;
+    }
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        [weakSelf _finishPosConnectWhenReady:attemptsRemaining - 1];
+    });
 }
 
 - (void)POSbleFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
+    if (self.labelMode) return;
     XLog(@"connect failed: %@", error.localizedDescription ?: @"(nil)");
     [[POSBLEManager sharedInstance] stopScan];
     self.pendingConnectScanArmed = NO;
@@ -415,6 +477,7 @@ static const int kDefaultBarcodeHeight = 162;
 }
 
 - (void)POSbleDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
+    if (self.labelMode) return;
     XLog(@"disconnect: %@ error=%@",
          peripheral.identifier.UUIDString,
          error.localizedDescription ?: @"(nil)");
@@ -444,7 +507,7 @@ static const int kDefaultBarcodeHeight = 162;
         // poweredOn: if we issued startScan while CB was still in
         // `unknown`/`resetting`, that scan was a silent no-op.  Re-issue
         // it now so the pending connect actually has a chance.
-        if (self.pendingConnectScanArmed) {
+        if (!self.labelMode && self.pendingConnectScanArmed) {
             XLog(@"CB now poweredOn — restarting scan for pending connect");
             [[POSBLEManager sharedInstance] startScan];
         }
@@ -463,6 +526,91 @@ static const int kDefaultBarcodeHeight = 162;
         self.discoverySink([FlutterError errorWithCode:@"BLUETOOTH_UNAUTHORIZED"
                                                message:@"Bluetooth permission denied — enable in Settings"
                                                details:nil]);
+    }
+}
+
+// Label printers use the vendor's TSC BLE manager. It discovers its own
+// CBPeripheral; a peripheral returned by POSBLEManager belongs to a different
+// CBCentralManager and cannot be passed to TSCBLEManager.connectDevice:.
+- (void)TSCbleUpdatePeripheralList:(NSArray *)peripherals RSSIList:(NSArray *)rssiList {
+    if (!self.labelMode || !self.pendingConnectAddress) return;
+    for (CBPeripheral *peripheral in peripherals) {
+        if (![peripheral.identifier.UUIDString.lowercaseString isEqualToString:self.pendingConnectAddress]) {
+            continue;
+        }
+        XLog(@"TSPL BLE device found: %@", peripheral.identifier.UUIDString);
+        self.pendingConnectAddress = nil;
+        self.pendingConnectScanArmed = NO;
+        [[TSCBLEManager sharedInstance] stopScan];
+        [[TSCBLEManager sharedInstance] connectDevice:peripheral];
+        return;
+    }
+}
+
+- (void)TSCbleConnectPeripheral:(CBPeripheral *)peripheral {
+    if (!self.labelMode) return;
+    XLog(@"TSPL BLE connected: %@", peripheral.identifier.UUIDString);
+    [[TSCBLEManager sharedInstance] stopScan];
+    self.pendingConnectScanArmed = NO;
+    [self _finishTscConnectWhenReady:30];
+}
+
+- (void)_finishTscConnectWhenReady:(NSInteger)attemptsRemaining {
+    if (!self.labelMode || !self.pendingConnectResult) return;
+    TSCBLEManager *manager = [TSCBLEManager sharedInstance];
+    if (manager.writePeripheral.state == CBPeripheralStateConnected && manager.write_characteristic) {
+        FlutterResult pending = self.pendingConnectResult;
+        self.pendingConnectResult = nil;
+        pending(nil);
+        return;
+    }
+    if (attemptsRemaining == 0) {
+        FlutterResult pending = self.pendingConnectResult;
+        self.pendingConnectResult = nil;
+        self.currentTransport = XprinterTransportNone;
+        [[TSCBLEManager sharedInstance] disconnectRootPeripheral];
+        pending([FlutterError errorWithCode:@"CONNECT_FAIL"
+                                    message:@"TSPL BLE write characteristic was not discovered"
+                                    details:nil]);
+        return;
+    }
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        [weakSelf _finishTscConnectWhenReady:attemptsRemaining - 1];
+    });
+}
+
+- (void)TSCbleFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
+    if (!self.labelMode) return;
+    XLog(@"TSPL BLE connect failed: %@", error.localizedDescription ?: @"unknown");
+    [[TSCBLEManager sharedInstance] stopScan];
+    self.currentTransport = XprinterTransportNone;
+    if (self.pendingConnectResult) {
+        FlutterResult pending = self.pendingConnectResult;
+        self.pendingConnectResult = nil;
+        pending([FlutterError errorWithCode:@"CONNECT_FAIL"
+                                    message:error.localizedDescription ?: @"TSPL BLE connect failed"
+                                    details:nil]);
+    }
+}
+
+- (void)TSCbleDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
+    if (!self.labelMode) return;
+    XLog(@"TSPL BLE disconnected: %@", error.localizedDescription ?: @"unknown");
+    self.currentTransport = XprinterTransportNone;
+    if (self.pendingFlushResult) {
+        FlutterResult pending = self.pendingFlushResult;
+        self.pendingFlushResult = nil;
+        pending([FlutterError errorWithCode:@"CONNECTION_LOST"
+                                    message:error.localizedDescription ?: @"TSPL BLE connection lost"
+                                    details:nil]);
+    }
+}
+
+- (void)TSCbleCentralManagerDidUpdateState:(NSInteger)state {
+    if (state == 5 && self.labelMode && self.pendingConnectScanArmed) {
+        [[TSCBLEManager sharedInstance] startScan];
     }
 }
 
@@ -660,6 +808,12 @@ static const int kDefaultBarcodeHeight = 162;
 }
 
 - (void)getStatus:(FlutterResult)result {
+    if (self.labelMode && self.currentTransport == XprinterTransportBluetooth) {
+        result([FlutterError errorWithCode:@"UNSUPPORTED_STATUS"
+                                   message:@"POS status is not available on a TSPL BLE connection"
+                                   details:nil]);
+        return;
+    }
     if (self.currentTransport == XprinterTransportBluetooth) {
         // Status is a query, not a print, but it shares the same BLE
         // write characteristic.  Flush any pending receipt bytes first
@@ -696,6 +850,82 @@ static const int kDefaultBarcodeHeight = 162;
         return;
     }
     [self _writeData:typed.data result:result];
+}
+
+- (void)printLabel:(NSDictionary *)args result:(FlutterResult)result {
+    FlutterStandardTypedData *typed = args[@"bytes"];
+    if (!typed.data || typed.data.length == 0) {
+        result([FlutterError errorWithCode:@"INVALID_ARGS" message:@"printLabel requires nonempty 'bytes'" details:nil]);
+        return;
+    }
+    if (self.currentTransport == XprinterTransportBluetooth) {
+        if (self.labelMode) {
+            [self _writeTscBleData:typed.data result:result];
+            return;
+        }
+        if (![[POSBLEManager sharedInstance] printerIsConnect]) {
+            result([FlutterError errorWithCode:@"NOT_CONNECTED" message:@"Bluetooth printer not connected" details:nil]);
+            return;
+        }
+        if (self.pendingBleBuffer.length > 0) {
+            result([FlutterError errorWithCode:@"INVALID_STATE" message:@"Finish the pending receipt before printing a label" details:nil]);
+            return;
+        }
+        if (!self.pendingBleBuffer) self.pendingBleBuffer = [NSMutableData data];
+        [self.pendingBleBuffer appendData:typed.data];
+        [self _flushBleBuffer:result];
+        return;
+    }
+    [self _writeData:typed.data result:result];
+}
+
+- (void)_writeTscBleData:(NSData *)data result:(FlutterResult)result {
+    TSCBLEManager *manager = [TSCBLEManager sharedInstance];
+    if (manager.writePeripheral.state != CBPeripheralStateConnected || !manager.write_characteristic) {
+        result([FlutterError errorWithCode:@"NOT_CONNECTED"
+                                   message:@"TSPL BLE printer has no writable characteristic"
+                                   details:nil]);
+        return;
+    }
+    if (self.pendingFlushResult) {
+        result([FlutterError errorWithCode:@"WRITE_BUSY"
+                                   message:@"A BLE write is already in progress"
+                                   details:nil]);
+        return;
+    }
+
+    self.pendingFlushResult = result;
+    self.writeGeneration += 1;
+    NSUInteger generation = self.writeGeneration;
+    XLog(@"TSPL BLE write %lu bytes", (unsigned long)data.length);
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kBleWriteTimeout * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || self.writeGeneration != generation || !self.pendingFlushResult) return;
+        FlutterResult pending = self.pendingFlushResult;
+        self.pendingFlushResult = nil;
+        XLog(@"TSPL BLE write timed out");
+        pending([FlutterError errorWithCode:@"WRITE_TIMEOUT"
+                                    message:@"TSPL BLE write received no SDK callback within 10 seconds"
+                                    details:nil]);
+    });
+    [manager writeCommandWithData:data writeCallBack:^(CBCharacteristic *characteristic, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self || self.writeGeneration != generation || !self.pendingFlushResult) return;
+            FlutterResult pending = self.pendingFlushResult;
+            self.pendingFlushResult = nil;
+            XLog(@"TSPL BLE write callback: %@", error.localizedDescription ?: @"OK");
+            if (error) {
+                pending([FlutterError errorWithCode:@"WRITE_FAIL"
+                                            message:error.localizedDescription ?: @"TSPL BLE write failed"
+                                            details:nil]);
+            } else {
+                pending(nil);
+            }
+        });
+    }];
 }
 
 // MARK: - Private helpers -------------------------------------------------
@@ -756,6 +986,12 @@ static const int kDefaultBarcodeHeight = 162;
 /// - `FlutterError(CONNECTION_LOST)` if `POSbleDisconnectPeripheral:` fires
 ///   while we're still waiting for the callback (handled in that delegate)
 - (void)_flushBleBuffer:(FlutterResult)result {
+    if (self.pendingFlushResult) {
+        result([FlutterError errorWithCode:@"WRITE_BUSY"
+                                   message:@"A BLE write is already in progress"
+                                   details:nil]);
+        return;
+    }
     NSMutableData *buf = self.pendingBleBuffer;
     if (buf.length == 0) {
         result(nil);
@@ -765,10 +1001,25 @@ static const int kDefaultBarcodeHeight = 162;
     NSData *snapshot = [buf copy];
     self.pendingBleBuffer = [NSMutableData data];
     self.pendingFlushResult = result;
+    self.writeGeneration += 1;
+    NSUInteger generation = self.writeGeneration;
 
     XLog(@"flush %lu bytes", (unsigned long)snapshot.length);
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kBleWriteTimeout * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || self.writeGeneration != generation || !self.pendingFlushResult) return;
+        FlutterResult pending = self.pendingFlushResult;
+        self.pendingFlushResult = nil;
+        XLog(@"POS BLE write timed out");
+        pending([FlutterError errorWithCode:@"WRITE_TIMEOUT"
+                                    message:@"POS BLE write received no SDK callback within 10 seconds"
+                                    details:nil]);
+    });
     [[POSBLEManager sharedInstance] writeCommandWithData:snapshot writeCallBack:^(CBCharacteristic *characteristic, NSError *error) {
         dispatch_async(dispatch_get_main_queue(), ^{
+            if (self.writeGeneration != generation) return;
             FlutterResult pending = self.pendingFlushResult;
             if (!pending) {
                 // Already resolved (e.g. by POSbleDisconnectPeripheral:
@@ -850,6 +1101,7 @@ static FlutterError *_kSimError(void) {
 - (void)setAlignment:(NSDictionary *)args result:(FlutterResult)result     { result(_kSimError()); }
 - (void)getStatus:(FlutterResult)result                                    { result(@0); }
 - (void)sendRawCommand:(NSDictionary *)args result:(FlutterResult)result   { result(_kSimError()); }
+- (void)printLabel:(NSDictionary *)args result:(FlutterResult)result       { result(_kSimError()); }
 
 // FlutterStreamHandler — simulator cannot use the vendor BLE scanner.
 - (FlutterError *)onListenWithArguments:(id)arguments eventSink:(FlutterEventSink)events {

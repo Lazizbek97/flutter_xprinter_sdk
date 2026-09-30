@@ -1,6 +1,6 @@
 # flutter_xprinter_sdk
 
-Flutter plugin for **XPrinter** thermal receipt printers — connectivity, ESC/POS commands, **first-class Cyrillic support**, **photo dithering**, and **paper-size-aware** layout helpers (58 / 72 / 80 mm).
+Flutter plugin for **XPrinter** thermal receipt and label printers — connectivity, ESC/POS receipts, TSPL labels, **first-class Cyrillic support**, **photo dithering**, and **paper-size-aware** receipt layout helpers (58 / 72 / 80 mm).
 
 ## Bundled native SDK versions
 
@@ -130,6 +130,47 @@ Future<void> printSimpleReceipt() async {
 
 See [`example/`](example/) for a full sample app.
 
+## Label printing (XP-245B and other TSPL models)
+
+The [XP-245B](https://www.xprinter.net/product/754.html) has a 48 mm print
+head at 203 dpi (about 384 dots). The commands follow the
+[TSPL/TSPL2 programming manual](https://fs.tscprinters.com/system/files/31-0000001-00_tspl_tspl2_programming_g.pdf).
+Connect in label mode, then create and print a label:
+
+```dart
+await XprinterConnection.connect(
+  type: XprinterConnectionType.bluetooth,
+  address: printer.address,
+  labelMode: true,
+);
+final label = LabelPrinter(widthMm: 48, heightMm: 30, gapMm: 2)
+  ..addText('Milk 1L', x: 16, y: 16, font: 3)
+  ..addBarcode('123456789012', x: 16, y: 60, height: 80)
+  ..addQrCode('SKU-123', x: 280, y: 16);
+await label.print(copies: 2);
+```
+
+Coordinates and image dimensions are in dots. `addImage` accepts PNG, JPEG,
+BMP, or GIF bytes and converts them to the TSPL one-bit `BITMAP` format. Use it
+for logos or rendered Unicode text. The built-in printer font used by
+`addText` accepts ASCII only; render Cyrillic to an image before adding it to
+the label. `build()` returns the complete command bytes if you need to inspect
+or send them through another transport. Label jobs are sent in one native call,
+which also flushes the iOS BLE buffer. Use the printer's label mode and paper
+gap setting; receipt helpers and `PosPrinter.initialize()` are for ESC/POS jobs.
+
+The XP-245B can also operate in receipt mode, so make sure the installed media
+and printer mode match the TSPL label job. This API has automated command tests,
+but has not been verified on physical XP-245B hardware.
+
+To test with the bundled app, connect a physical Android or iOS device, run
+`flutter devices`, then `cd example && flutter run -d <device-id>`. Scan for the
+printer, select it, enter your label width,
+height, and gap (defaults: 48 × 30 mm, 2 mm), then tap **Print demo label
+(TSPL)**. The iOS Simulator cannot send print commands because the bundled
+vendor SDK has no arm64 simulator slice. The plugin has no macOS or web
+implementation.
+
 ## API reference
 
 ### Connection — `XprinterConnection` / `XprinterBluetooth`
@@ -155,6 +196,16 @@ See [`example/`](example/) for a full sample app.
 | `PosPrinter.printHorizontalLine(widthDots, heightRows, alignment)` | Solid black bar. |
 | `PosPrinter.feedLine(n)` / `cutPaper(half:)` | Paper feed and cut. |
 | `PosPrinter.sendRawCommand(bytes)` | Escape hatch for arbitrary ESC/POS bytes. |
+
+### Labels — `LabelPrinter`
+
+| Call | Purpose |
+|---|---|
+| `LabelPrinter(widthMm:, heightMm:, gapMm:)` | Set label stock size and gap. |
+| `addText(...)` / `addBarcode(...)` / `addQrCode(...)` | Place TSPL text, Code 128, and QR code. |
+| `addImage(bytes, x:, y:)` | Place a monochrome raster image. |
+| `print(copies:)` | Print one format with the requested number of copies. |
+| `build(copies:)` | Return the TSPL byte stream without sending it. |
 
 ### Layout helpers — `XprinterLayout`
 

@@ -22,17 +22,24 @@ abstract final class XprinterConnection {
   ///
   /// Direct Bluetooth connections are unavailable on Windows because the
   /// vendor Windows SDK supports USB, TCP/IP, and serial ports only.
+  /// Set [labelMode] for TSPL label printing. On iOS Bluetooth this selects
+  /// the vendor's TSC BLE transport instead of its POS BLE transport.
   ///
   /// Throws [XprinterException] on failure.  Returns when the underlying
   /// `connectSync` reports success (call blocks on the native side).
   static Future<void> connect({
     required XprinterConnectionType type,
     required String address,
+    bool labelMode = false,
   }) async {
     try {
       await xprinterMethodChannel.invokeMethod<bool>(
         'connect',
-        <String, Object?>{'type': type.name, 'address': address},
+        <String, Object?>{
+          'type': type.name,
+          'address': address,
+          if (labelMode) 'labelMode': true,
+        },
       );
     } on PlatformException catch (e) {
       throw XprinterException(e.code, e.message ?? 'unknown');

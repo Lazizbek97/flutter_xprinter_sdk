@@ -6,7 +6,8 @@ const _channel = MethodChannel('dev.lazizbekfayziev.flutter_xprinter_sdk');
 
 /// Shorthand for the test binding's binary messenger — keeps lines under
 // ignore: lines_longer_than_80_chars
-TestDefaultBinaryMessengerBinding get _binding => TestDefaultBinaryMessengerBinding.instance;
+TestDefaultBinaryMessengerBinding get _binding =>
+    TestDefaultBinaryMessengerBinding.instance;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +51,20 @@ void main() {
       expect(calls.single.arguments, <String, Object?>{
         'type': 'bluetooth',
         'address': 'AA:BB:CC:DD:EE:FF',
+      });
+    });
+
+    test('label mode is sent for TSPL connections', () async {
+      await XprinterConnection.connect(
+        type: XprinterConnectionType.bluetooth,
+        address: 'printer-uuid',
+        labelMode: true,
+      );
+
+      expect(calls.single.arguments, <String, Object?>{
+        'type': 'bluetooth',
+        'address': 'printer-uuid',
+        'labelMode': true,
       });
     });
 

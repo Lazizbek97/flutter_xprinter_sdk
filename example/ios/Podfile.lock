@@ -1,8 +1,8 @@
 PODS:
   - Flutter (1.0.0)
-  - flutter_xprinter_sdk (0.1.0):
+  - flutter_xprinter_sdk (0.2.0):
     - Flutter
-  - permission_handler_apple (9.3.0):
+  - permission_handler_apple (9.4.8):
     - Flutter
 
 DEPENDENCIES:
@@ -20,8 +20,8 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_xprinter_sdk: da61f9496c38dcef5a3de5de7934e682d7f93506
-  permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
+  flutter_xprinter_sdk: 674e22e4b3e6d57861164d2be0b30d3cc261267f
+  permission_handler_apple: 92d754bbaa7361d436db2d6c3c1c2a0fdcec462e
 
 PODFILE CHECKSUM: 3c63482e143d1b91d2d2560aee9fb04ecc74ac7e
 
