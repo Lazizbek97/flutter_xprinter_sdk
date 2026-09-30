@@ -105,8 +105,9 @@ class LabelPrinter {
 
   /// Adds a PNG/JPEG/BMP/GIF as a 1-bit TSPL BITMAP command.
   ///
-  /// Black pixels set bits; transparent pixels are treated as white. Images
-  /// wider than the print head or outside the label are rejected.
+  /// TSPL prints a dot for a 0 bit, so black pixels clear bits; transparent
+  /// pixels and row padding stay white. Images wider than the print head or
+  /// outside the label are rejected.
   void addImage(Uint8List bytes,
       {required int x, required int y, int threshold = 128}) {
     _position(x, y);
@@ -124,7 +125,9 @@ class LabelPrinter {
           'image exceeds label bounds ($widthDots x $heightDots dots)');
     }
     final rowBytes = (image.width + 7) ~/ 8;
+    // Starts white: the vendor SDK also sends 1 for white in TSPL bitmaps.
     final bitmap = Uint8List(rowBytes * image.height);
+    bitmap.fillRange(0, bitmap.length, 0xff);
     for (var py = 0; py < image.height; py++) {
       for (var px = 0; px < image.width; px++) {
         final pixel = image.getPixel(px, py);
@@ -133,7 +136,7 @@ class LabelPrinter {
             (0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b) * alpha +
                 255 * (1 - alpha);
         if (luminance < threshold) {
-          bitmap[py * rowBytes + px ~/ 8] |= 0x80 >> (px % 8);
+          bitmap[py * rowBytes + px ~/ 8] &= ~(0x80 >> (px % 8));
         }
       }
     }

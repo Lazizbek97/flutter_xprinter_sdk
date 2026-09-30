@@ -25,7 +25,7 @@ void main() {
     expect(commands, endsWith('PRINT 2\r\n'));
   });
 
-  test('packs image bits with row padding and white transparency', () {
+  test('black pixels clear bits; padding and transparency stay white', () {
     final image = img.Image(width: 9, height: 1, numChannels: 4);
     img.fill(image, color: img.ColorRgba8(255, 255, 255, 255));
     image.setPixelRgba(0, 0, 0, 0, 0, 255);
@@ -36,7 +36,8 @@ void main() {
     final bytes = label.build();
     final header = ascii.encode('BITMAP 0,0,2,1,0,');
     final offset = _indexOf(bytes, header) + header.length;
-    expect(bytes.sublist(offset, offset + 4), <int>[0x80, 0x80, 13, 10]);
+    // TSPL prints the 0 bits: only pixels 0 and 8 are black.
+    expect(bytes.sublist(offset, offset + 4), <int>[0x7f, 0x7f, 13, 10]);
   });
 
   test('sends one label job through printLabel', () async {
