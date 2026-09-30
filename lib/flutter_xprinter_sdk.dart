@@ -13,6 +13,7 @@ export 'src/cp866_encoder.dart';
 export 'src/divider_style.dart';
 export 'src/image_dither.dart';
 export 'src/image_loader.dart';
+export 'src/label_printer.dart';
 export 'src/pos_printer.dart';
 export 'src/printer_status.dart';
 export 'src/qr_correction.dart';

@@ -73,6 +73,7 @@ class XprinterSdkPlugin : FlutterPlugin, MethodCallHandler {
             "setAlignment"    -> sdkManager.setAlignment(args, result)
             "getStatus"       -> sdkManager.getStatus(result)
             "sendRawCommand"  -> sdkManager.sendRawCommand(args, result)
+            "printLabel"      -> sdkManager.sendRawCommand(args, result)
 
             else -> result.notImplemented()
         }

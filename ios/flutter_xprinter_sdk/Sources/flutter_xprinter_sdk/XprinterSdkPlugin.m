@@ -54,6 +54,7 @@ static NSString *const kDiscoveryChannel = @"dev.lazizbekfayziev.flutter_xprinte
     if ([method isEqualToString:@"setAlignment"])         { [self.manager setAlignment:args result:result]; return; }
     if ([method isEqualToString:@"getStatus"])            { [self.manager getStatus:result]; return; }
     if ([method isEqualToString:@"sendRawCommand"])       { [self.manager sendRawCommand:args result:result]; return; }
+    if ([method isEqualToString:@"printLabel"])           { [self.manager printLabel:args result:result]; return; }
 
     result(FlutterMethodNotImplemented);
 }

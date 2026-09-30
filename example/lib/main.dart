@@ -32,6 +32,12 @@ class _HomePageState extends State<HomePage> {
   XprinterBluetoothDevice? _selected;
   final TextEditingController _windowsAddressController =
       TextEditingController(text: '192.168.1.100');
+  final TextEditingController _labelWidthController =
+      TextEditingController(text: '48');
+  final TextEditingController _labelHeightController =
+      TextEditingController(text: '30');
+  final TextEditingController _labelGapController =
+      TextEditingController(text: '2');
   XprinterConnectionType _windowsConnectionType = XprinterConnectionType.tcp;
   bool _scanning = false;
   bool _printing = false;
@@ -43,6 +49,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _windowsAddressController.dispose();
+    _labelWidthController.dispose();
+    _labelHeightController.dispose();
+    _labelGapController.dispose();
     super.dispose();
   }
 
@@ -308,6 +317,79 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _printDemoLabel() async {
+    final device = _selected;
+    if (!_isWindows && device == null) {
+      setState(() => _status = 'Pick a device first');
+      return;
+    }
+
+    final widthMm = double.tryParse(_labelWidthController.text.trim());
+    final heightMm = double.tryParse(_labelHeightController.text.trim());
+    final gapMm = double.tryParse(_labelGapController.text.trim());
+    if (widthMm == null || heightMm == null || gapMm == null) {
+      setState(() => _status = 'Enter numeric label width, height and gap');
+      return;
+    }
+    if (widthMm < 30 ||
+        widthMm > 48 ||
+        heightMm < 20 ||
+        heightMm > 300 ||
+        gapMm < 0 ||
+        gapMm > 25) {
+      setState(() => _status =
+          'Demo requires width 30–48 mm, height 20–300 mm, gap 0–25 mm');
+      return;
+    }
+
+    final connectionType =
+        _isWindows ? _windowsConnectionType : XprinterConnectionType.bluetooth;
+    final address =
+        _isWindows ? _windowsAddressController.text.trim() : device!.address;
+    if (connectionType == XprinterConnectionType.tcp && address.isEmpty) {
+      setState(() => _status = 'Enter the printer IP address');
+      return;
+    }
+
+    setState(() {
+      _printing = true;
+      _status = 'Connecting via ${connectionType.name}…';
+    });
+    try {
+      final label = LabelPrinter(
+        widthMm: widthMm,
+        heightMm: heightMm,
+        gapMm: gapMm,
+      )
+        ..addText('LABEL TEST', x: 16, y: 16, font: 2)
+        ..addBarcode('12345678',
+            x: 16,
+            y: 115,
+            showText: false,
+            height: (heightMm * 8).floor() - 130 < 80
+                ? (heightMm * 8).floor() - 130
+                : 80)
+        ..addQrCode('SKU-123', x: (widthMm * 8).floor() - 100, y: 16);
+
+      await XprinterConnection.connect(
+        type: connectionType,
+        address: address,
+        labelMode: true,
+      );
+      setState(() => _status = 'Printing TSPL label…');
+      await label.print();
+      await Future<void>.delayed(const Duration(seconds: 2));
+      setState(() => _status = 'Label sent');
+    } catch (e) {
+      setState(() => _status = 'Label failed: $e');
+    } finally {
+      try {
+        await XprinterConnection.disconnect();
+      } catch (_) {}
+      setState(() => _printing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -385,6 +467,26 @@ class _HomePageState extends State<HomePage> {
                     : _printDemoReceipt,
               ),
               const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                      child: _labelField(_labelWidthController, 'Width mm')),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: _labelField(_labelHeightController, 'Height mm')),
+                  const SizedBox(width: 8),
+                  Expanded(child: _labelField(_labelGapController, 'Gap mm')),
+                ],
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.label_outline),
+                label: const Text('Print demo label (TSPL)'),
+                onPressed: (_printing || (!_isWindows && _selected == null))
+                    ? null
+                    : _printDemoLabel,
+              ),
+              const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -402,6 +504,18 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _labelField(TextEditingController controller, String label) {
+    return TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        border: const OutlineInputBorder(),
+        labelText: label,
+        isDense: true,
       ),
     );
   }
