@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
 - Add TSPL label jobs for XP-245B-class printers, including text, Code 128,
   QR codes, and raster images. Reuse the existing connection on all platforms
