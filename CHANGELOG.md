@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.0
+
+- Add TSPL label jobs for XP-245B-class printers, including text, Code 128,
+  QR codes, and raster images. Reuse the existing connection on all platforms
+  and flush label jobs immediately on iOS BLE.
+- Add a TSPL label print button and stock-size inputs to the example app.
+- Use CocoaPods for the iOS example to avoid resolving the plugin's local
+  Swift package against a missing `FlutterFramework` path.
+- Route iOS Bluetooth label jobs through the vendor's TSC BLE manager and
+  report connection/write timeouts instead of waiting indefinitely.
+
 ## 0.2.1
 
 ### Fixed

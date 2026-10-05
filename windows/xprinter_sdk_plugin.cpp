@@ -444,6 +444,8 @@ public:
       GetStatus(std::move(result));
     } else if (method == "sendRawCommand") {
       SendRawCommand(arguments, std::move(result));
+    } else if (method == "printLabel") {
+      SendRawCommand(arguments, std::move(result));
     } else {
       result->NotImplemented();
     }
