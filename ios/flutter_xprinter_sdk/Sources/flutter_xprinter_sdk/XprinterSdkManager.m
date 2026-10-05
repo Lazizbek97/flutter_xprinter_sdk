@@ -31,6 +31,14 @@ typedef NS_ENUM(NSInteger, XprinterTransport) {
 static const NSTimeInterval kConnectScanTimeout = 12.0;
 static const NSTimeInterval kBleWriteTimeout = 10.0;
 
+// How long to wait for the SDK's BLE write callback before failing with
+// WRITE_TIMEOUT.  Scales with payload size — a receipt with a logo and a
+// QR bitmap, or a large label, can take well over 10 s to go out over BLE
+// and would otherwise report a timeout for a job that still prints.
+static NSTimeInterval XprinterWriteTimeout(NSUInteger bytes) {
+    return kBleWriteTimeout + bytes / 1024.0;  // 10 s + 1 s per KB
+}
+
 // All NSLog from the manager goes through this so the user can grep
 // Console.app for `[XprinterSdk]` and see exactly what happened.
 #define XLog(fmt, ...) NSLog(@"[XprinterSdk] " fmt, ##__VA_ARGS__)
@@ -899,7 +907,7 @@ static const int kDefaultBarcodeHeight = 162;
     NSUInteger generation = self.writeGeneration;
     XLog(@"TSPL BLE write %lu bytes", (unsigned long)data.length);
     __weak typeof(self) weakSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kBleWriteTimeout * NSEC_PER_SEC)),
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(XprinterWriteTimeout(data.length) * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
         __strong typeof(weakSelf) self = weakSelf;
         if (!self || self.writeGeneration != generation || !self.pendingFlushResult) return;
@@ -907,7 +915,7 @@ static const int kDefaultBarcodeHeight = 162;
         self.pendingFlushResult = nil;
         XLog(@"TSPL BLE write timed out");
         pending([FlutterError errorWithCode:@"WRITE_TIMEOUT"
-                                    message:@"TSPL BLE write received no SDK callback within 10 seconds"
+                                    message:@"TSPL BLE write received no SDK callback"
                                     details:nil]);
     });
     [manager writeCommandWithData:data writeCallBack:^(CBCharacteristic *characteristic, NSError *error) {
@@ -1006,7 +1014,7 @@ static const int kDefaultBarcodeHeight = 162;
 
     XLog(@"flush %lu bytes", (unsigned long)snapshot.length);
     __weak typeof(self) weakSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kBleWriteTimeout * NSEC_PER_SEC)),
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(XprinterWriteTimeout(snapshot.length) * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
         __strong typeof(weakSelf) self = weakSelf;
         if (!self || self.writeGeneration != generation || !self.pendingFlushResult) return;
@@ -1014,7 +1022,7 @@ static const int kDefaultBarcodeHeight = 162;
         self.pendingFlushResult = nil;
         XLog(@"POS BLE write timed out");
         pending([FlutterError errorWithCode:@"WRITE_TIMEOUT"
-                                    message:@"POS BLE write received no SDK callback within 10 seconds"
+                                    message:@"POS BLE write received no SDK callback"
                                     details:nil]);
     });
     [[POSBLEManager sharedInstance] writeCommandWithData:snapshot writeCallBack:^(CBCharacteristic *characteristic, NSError *error) {

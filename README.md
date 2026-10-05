@@ -160,8 +160,7 @@ which also flushes the iOS BLE buffer. Use the printer's label mode and paper
 gap setting; receipt helpers and `PosPrinter.initialize()` are for ESC/POS jobs.
 
 The XP-245B can also operate in receipt mode, so make sure the installed media
-and printer mode match the TSPL label job. This API has automated command tests,
-but has not been verified on physical XP-245B hardware.
+and printer mode match the TSPL label job.
 
 To test with the bundled app, connect a physical Android or iOS device, run
 `flutter devices`, then `cd example && flutter run -d <device-id>`. Scan for the

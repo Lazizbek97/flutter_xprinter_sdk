@@ -20,8 +20,8 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_xprinter_sdk: 674e22e4b3e6d57861164d2be0b30d3cc261267f
-  permission_handler_apple: 92d754bbaa7361d436db2d6c3c1c2a0fdcec462e
+  flutter_xprinter_sdk: fb64943addfa0fdc5b97b0e0a5672c03bc426ca8
+  permission_handler_apple: ee2fe0fd04551b304eb002714ff067c371c822ed
 
 PODFILE CHECKSUM: 3c63482e143d1b91d2d2560aee9fb04ecc74ac7e
 
