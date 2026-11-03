@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.1
+
+### Fixed
+- Android status queries no longer block the main thread needed by the vendor
+  callback. `PosPrinter.getStatus()` can now report live paper-out and ready
+  states on the XP-58IIT instead of returning the two-second timeout default.
+- Bound Android queries to 6.5 seconds, share overlapping status requests, and
+  ignore duplicate or late callbacks. Disconnecting cancels pending status
+  reads with unknown status, so an old response cannot mark a new connection ready.
+
+### Documentation
+- Document receipt-readiness checks and the tested XP-58IIT sensor limitations.
+  This release does not add hardware sensors or enforce fiscal checkout rules.
+
 ## 1.0.0
 
 - Add TSPL label jobs for XP-245B-class printers, including text, Code 128,

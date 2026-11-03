@@ -8,8 +8,6 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import io.flutter.plugin.common.MethodChannel.Result
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import net.posprinter.IConnectListener
 import net.posprinter.IDeviceConnection
 import net.posprinter.POSConnect
@@ -32,6 +30,11 @@ class XprinterSdkManager {
     private var currentConnection: IDeviceConnection? = null
     private var currentPrinter: POSPrinter? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val statusQuery = PrinterStatusQuery(
+        post = { task -> mainHandler.post(task) },
+        postDelayed = { task, delay -> mainHandler.postDelayed(task, delay) },
+        removeCallbacks = { task -> mainHandler.removeCallbacks(task) },
+    )
 
     /** Current method name set by the plugin before each onMethodCall dispatch. */
     var currentMethodName: String = "<unknown>"
@@ -220,6 +223,7 @@ class XprinterSdkManager {
 
     /** Internal close — also called from plugin detach to avoid leaks. */
     fun disconnect() {
+        statusQuery.cancel()
         currentConnection?.let { conn ->
             try {
                 conn.close()
@@ -349,19 +353,18 @@ class XprinterSdkManager {
     }
 
     fun getStatus(result: Result) = withPrinter(result) { p ->
-        // The SDK's printerStatus is async — receive(int) on a callback.
-        // Block briefly to convert to a sync-style API for Dart.
-        var captured = -1 // STS_UNKNOWN default
-        val latch = CountDownLatch(1)
-        val cb = IStatusCallback { code ->
-            captured = code
-            latch.countDown()
-        }
-        p.printerStatus(cb)
-        // 2-second cap.  If the printer is unreachable the SDK never calls back;
-        // we surface STS_UNKNOWN rather than hanging.
-        latch.await(2, TimeUnit.SECONDS)
-        result.success(captured)
+        statusQuery.read(
+            requestStatus = { callback -> p.printerStatus(IStatusCallback { code -> callback(code) }) },
+            onSuccess = { code -> result.success(code) },
+            onError = { error ->
+                Log.e(LOG_TAG, "Native getStatus failed", error)
+                result.error(
+                    ERR_PRINT_FAIL,
+                    "[getStatus] ${error.javaClass.simpleName}: ${error.message}",
+                    null,
+                )
+            },
+        )
     }
 
     fun sendRawCommand(args: Map<String, Any?>, result: Result) = withPrinter(result) { p ->

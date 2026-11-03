@@ -38,7 +38,7 @@ Most ESC/POS Flutter packages target Latin text on a single paper width. This on
 
 ```yaml
 dependencies:
-  flutter_xprinter_sdk: ^1.0.0
+  flutter_xprinter_sdk: ^1.0.1
 ```
 
 ```bash
@@ -129,6 +129,62 @@ Future<void> printSimpleReceipt() async {
 ```
 
 See [`example/`](example/) for a full sample app.
+
+## Printer readiness and paper detection
+
+After connecting, use `PosPrinter.getStatus()` to read printer-reported state.
+`XprinterConnection.isConnected()` only checks the transport; it does not confirm
+paper is loaded. Query status immediately before creating a receipt when your
+application requires a ready printer at that point.
+
+```dart
+import 'dart:async';
+import 'package:flutter_xprinter_sdk/flutter_xprinter_sdk.dart';
+
+Future<bool> canCreateReceipt() async {
+  try {
+    if (!await XprinterConnection.isConnected()) return false;
+    final status = await PosPrinter.getStatus()
+        .timeout(const Duration(seconds: 8));
+    // isReady rejects unknown/offline, paper-out, cover-open and error states.
+    return status.isReady;
+  } on XprinterException {
+    return false;
+  } on TimeoutException {
+    return false;
+  }
+}
+```
+
+Inspect `isPaperOut`, `isCoverOpen`, `hasError`, `isOnline`, and `rawValue` to
+explain a blocked action. Unknown status (`rawValue < 0`), query exceptions, and
+timeouts do not confirm readiness. After restoring paper or the connection,
+query again; completed results are not cached. If printing fails after a receipt
+has been fiscalized, reprint the existing receipt rather than fiscalizing twice.
+The plugin reports status; the consuming app owns its receipt-creation rules.
+
+On Android, the query is asynchronous with a 6.5-second callback deadline.
+Overlapping calls share one in-flight vendor read so they do not compete for
+response bytes. Disconnecting settles pending reads as unknown and ignores
+late callbacks. These Android guarantees do not change the iOS or Windows
+status implementations.
+
+Verified on an **XP-58IIT over Android Bluetooth** on 2026-11-03:
+
+| Physical condition | Observed result |
+| --- | --- |
+| Roll removed | `rawValue = 32`, `isPaperOut = true`, `isReady = false` |
+| Paper restored, lid closed | `rawValue = 0`, `isReady = true` |
+| Printer powered off | Connection unavailable; no confirmed readiness |
+| Printer switched back on and reconnected | Ready again |
+| Lid open with the roll inside | No dedicated cover-open flag reported |
+
+Responses with the callback fix took about 0.2–0.3 seconds on the tested unit.
+Sensor availability and command support depend on model, firmware, transport,
+and platform. Verify each physical condition on your deployment hardware;
+a false flag does not establish that the corresponding sensor is supported.
+Status is not an acknowledgement that a print job finished. iOS readiness
+mapping has not been validated by these Android hardware checks.
 
 ## Label printing (XP-245B and other TSPL models)
 
