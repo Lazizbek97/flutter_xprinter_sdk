@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_xprinter_sdk/flutter_xprinter_sdk.dart';
@@ -159,6 +161,55 @@ void main() {
   });
 
   group('PosPrinter.getStatus', () {
+    test('waits for the native callback before returning paper-out status',
+        () async {
+      final callback = Completer<int>();
+      _binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        _channel,
+        (call) => callback.future,
+      );
+      var completed = false;
+      final pending = PosPrinter.getStatus().then((status) {
+        completed = true;
+        return status;
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(completed, isFalse);
+
+      callback.complete(32);
+      final status = await pending;
+      expect(status.rawValue, 32);
+      expect(status.isPaperOut, isTrue);
+      expect(status.isReady, isFalse);
+    });
+
+    for (final raw in <int?>[null, -1, -3]) {
+      test('missing or unknown native response $raw never reports ready',
+          () async {
+        _binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          _channel,
+          (call) async => raw,
+        );
+        final status = await PosPrinter.getStatus();
+        expect(status.isOnline, isFalse);
+        expect(status.isReady, isFalse);
+      });
+    }
+
+    test('closed connection is surfaced as an XprinterException', () async {
+      _binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        _channel,
+        (call) async => throw PlatformException(code: 'not_connected'),
+      );
+      await expectLater(
+        PosPrinter.getStatus(),
+        throwsA(isA<XprinterException>().having(
+          (error) => error.code,
+          'code',
+          'not_connected',
+        )),
+      );
+    });
     test('parses native int into PrinterStatus', () async {
       final status = await PosPrinter.getStatus();
       expect(status.isOnline, isTrue);

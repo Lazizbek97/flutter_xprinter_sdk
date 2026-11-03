@@ -152,8 +152,12 @@ abstract final class PosPrinter {
 
   /// Reads the printer's current status (cover, paper, error).
   ///
-  /// Resolves with a [PrinterStatus.fromNativeValue]-parsed result once the
-  /// SDK's `IStatusCallback` returns.
+  /// Returns the SDK-reported flags, not a print-completion acknowledgement.
+  /// On Android, overlapping calls share one in-flight query. A missing callback
+  /// or disconnect during the query yields unknown status ([PrinterStatus.isReady]
+  /// is false); a closed connection or native failure throws [XprinterException].
+  /// Android queries have a 6.5-second callback deadline. Sensor support varies
+  /// by printer and firmware; verify the physical conditions on your device.
   static Future<PrinterStatus> getStatus() async {
     final raw = await _invoke<int>('getStatus');
     return PrinterStatus.fromNativeValue(raw ?? -1);
